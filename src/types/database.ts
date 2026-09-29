@@ -60,6 +60,7 @@ export interface Database {
           settings?: Json;
           updated_at?: string;
         };
+        Relationships: [];
       };
       profiles: {
         Row: {
@@ -96,6 +97,7 @@ export interface Database {
           metadata?: Json;
           updated_at?: string;
         };
+        Relationships: [];
       };
       departments: {
         Row: {
@@ -114,32 +116,34 @@ export interface Database {
           name?: string;
           head_name?: string | null;
         };
+        Relationships: [];
       };
       question_banks: {
         Row: {
           id: string;
           name: string;
           description: string | null;
-          created_by: string;
+          created_by: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           name: string;
           description?: string | null;
-          created_by: string;
+          created_by?: string | null;
           created_at?: string;
         };
         Update: {
           name?: string;
           description?: string | null;
         };
+        Relationships: [];
       };
       questions: {
         Row: {
           id: string;
           bank_id: string;
-          created_by: string;
+          created_by: string | null;
           type: QuestionType;
           content: Json;
           options: Json;
@@ -159,7 +163,7 @@ export interface Database {
         Insert: {
           id?: string;
           bank_id: string;
-          created_by: string;
+          created_by?: string | null;
           type: QuestionType;
           content: Json;
           options?: Json;
@@ -192,6 +196,7 @@ export interface Database {
           media_urls?: string[];
           updated_at?: string;
         };
+        Relationships: [];
       };
       exams: {
         Row: {
@@ -201,7 +206,7 @@ export interface Database {
           instructions: string | null;
           status: ExamStatus;
           settings: Json;
-          created_by: string;
+          created_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -212,7 +217,7 @@ export interface Database {
           instructions?: string | null;
           status?: ExamStatus;
           settings?: Json;
-          created_by: string;
+          created_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -224,6 +229,7 @@ export interface Database {
           settings?: Json;
           updated_at?: string;
         };
+        Relationships: [];
       };
       exam_sections: {
         Row: {
@@ -253,6 +259,30 @@ export interface Database {
           marking_scheme?: Json;
           selection_rules?: Json;
         };
+        Relationships: [];
+      };
+      exam_section_questions: {
+        Row: {
+          id: string;
+          section_id: string;
+          question_id: string;
+          order_index: number;
+          marks: number;
+        };
+        Insert: {
+          id?: string;
+          section_id: string;
+          question_id: string;
+          order_index: number;
+          marks?: number;
+        };
+        Update: {
+          section_id?: string;
+          question_id?: string;
+          order_index?: number;
+          marks?: number;
+        };
+        Relationships: [];
       };
       exam_schedules: {
         Row: {
@@ -288,6 +318,7 @@ export interface Database {
           proctoring_level?: ProctoringLevel;
           status?: ScheduleStatus;
         };
+        Relationships: [];
       };
       exam_assignments: {
         Row: {
@@ -313,6 +344,7 @@ export interface Database {
           started_at?: string | null;
           submitted_at?: string | null;
         };
+        Relationships: [];
       };
       exam_responses: {
         Row: {
@@ -339,6 +371,7 @@ export interface Database {
           time_spent_seconds?: number;
           saved_at?: string;
         };
+        Relationships: [];
       };
       exam_results: {
         Row: {
@@ -377,6 +410,7 @@ export interface Database {
           graded_by?: string | null;
           graded_at?: string | null;
         };
+        Relationships: [];
       };
       proctoring_sessions: {
         Row: {
@@ -406,6 +440,7 @@ export interface Database {
           risk_score?: number;
           proctor_notes?: string | null;
         };
+        Relationships: [];
       };
       audit_logs: {
         Row: {
@@ -431,6 +466,7 @@ export interface Database {
           created_at?: string;
         };
         Update: never;
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -456,7 +492,30 @@ export interface Database {
         Update: {
           read_at?: string | null;
         };
+        Relationships: [];
       };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      current_user_role: {
+        Args: Record<PropertyKey, never>;
+        Returns: UserRole;
+      };
+    };
+    Enums: {
+      user_role: UserRole;
+      question_type: QuestionType;
+      exam_status: ExamStatus;
+      schedule_status: ScheduleStatus;
+      window_type: WindowType;
+      proctoring_level: ProctoringLevel;
+      assignment_status: AssignmentStatus;
+      result_status: ResultStatus;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 }
