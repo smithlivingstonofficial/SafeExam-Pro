@@ -216,34 +216,8 @@ export default async function ExaminerQuestionBanksPage() {
               No Question Banks Registered
             </h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Create your first question bank to start building entrance exam question repositories.
+              Create your first question bank using the &ldquo;New Question Bank&rdquo; button above to start organizing entrance examination questions.
             </p>
-            <div className="mt-4">
-              <form
-                action={async (formData: FormData) => {
-                  "use server";
-                  await createQuestionBankAction(formData);
-                }}
-                className="inline-block"
-              >
-                <input
-                  type="hidden"
-                  name="name"
-                  value="Advanced Computing & Algorithms (CS-901)"
-                />
-                <input
-                  type="hidden"
-                  name="description"
-                  value="Graph algorithms, Complexity theory, and Distributed systems."
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer"
-                >
-                  Initialize Sample Bank
-                </button>
-              </form>
-            </div>
           </div>
         )}
       </div>

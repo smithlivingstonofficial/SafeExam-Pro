@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createAdminClient } from "@/lib/supabase/server";
 import {
   Users,
   Building2,
@@ -14,14 +15,58 @@ import {
   Sparkles,
 } from "lucide-react";
 
-export default function AdminOverviewPage() {
-  const auditLogs = [
-    { id: "AUD-9912", action: "EXAM_SCHEDULE_ACTIVATED", user: "Admin (admin@apex.edu)", ip: "192.168.1.10", time: "2 mins ago" },
-    { id: "AUD-9911", action: "CANDIDATE_REGISTERED", user: "Alexander Vance", ip: "172.20.100.45", time: "14 mins ago" },
-    { id: "AUD-9910", action: "QUESTION_BANK_UPDATED", user: "Prof. Eleanor Vance", ip: "10.0.4.12", time: "32 mins ago" },
-    { id: "AUD-9909", action: "PROCTOR_SESSION_INITIALIZED", user: "Dr. M. Jenkins", ip: "192.168.1.15", time: "45 mins ago" },
-    { id: "AUD-9908", action: "SYSTEM_DIAGNOSTIC_COMPLETED", user: "System Telemetry", ip: "127.0.0.1", time: "1 hour ago" },
-  ];
+export default async function AdminOverviewPage() {
+  const adminClient = createAdminClient();
+
+  // 1. Fetch real counts
+  const [
+    { count: candidateCount },
+    { count: staffCount },
+    { count: deptCount },
+    { count: questionCount },
+    { count: auditCount },
+    { data: activeSchedules },
+    { data: latestAuditLogs },
+  ] = await Promise.all([
+    adminClient.from("profiles").select("*", { count: "exact", head: true }).eq("role", "candidate"),
+    adminClient.from("profiles").select("*", { count: "exact", head: true }).neq("role", "candidate"),
+    adminClient.from("departments").select("*", { count: "exact", head: true }),
+    adminClient.from("questions").select("*", { count: "exact", head: true }),
+    adminClient.from("audit_logs").select("*", { count: "exact", head: true }),
+    adminClient.from("exam_schedules").select("id, duration_minutes, proctoring_level, status, exams(title)").eq("status", "active").limit(1),
+    adminClient.from("audit_logs").select("id, action, ip_address, created_at, user_id").order("created_at", { ascending: false }).limit(6),
+  ]);
+
+  // Lookup users for recent audit logs
+  const typedLatestLogs = (latestAuditLogs || []) as Array<{
+    id: string;
+    action: string;
+    ip_address: string | null;
+    created_at: string;
+    user_id: string | null;
+  }>;
+
+  const userIds = typedLatestLogs.map((l) => l.user_id).filter(Boolean) as string[];
+  const { data: userProfiles } = await adminClient
+    .from("profiles")
+    .select("id, full_name, role")
+    .in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const typedUserProfiles = (userProfiles || []) as Array<{
+    id: string;
+    full_name: string;
+    role: string;
+  }>;
+
+  const userMap = new Map(typedUserProfiles.map((u) => [u.id, u]));
+
+  const activeSchedule = activeSchedules?.[0] as {
+    id: string;
+    duration_minutes: number;
+    proctoring_level: string;
+    status: string;
+    exams: { title: string } | null;
+  } | null;
 
   return (
     <div className="space-y-8">
@@ -59,8 +104,8 @@ export default function AdminOverviewPage() {
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">1,420</div>
-          <div className="text-xs text-slate-500 mt-1 font-medium">8 Academic Programs</div>
+          <div className="text-2xl font-extrabold text-slate-900">{candidateCount || 0}</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium">{staffCount || 0} Faculty / Staff</div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -70,8 +115,8 @@ export default function AdminOverviewPage() {
               <Building2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">8 Units</div>
-          <div className="text-xs text-emerald-600 mt-1 font-medium">All Rosters Active</div>
+          <div className="text-2xl font-extrabold text-slate-900">{deptCount || 0} Units</div>
+          <div className="text-xs text-emerald-600 mt-1 font-medium">Academic Roster</div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -81,8 +126,8 @@ export default function AdminOverviewPage() {
               <FileSpreadsheet className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">450+ Items</div>
-          <div className="text-xs text-indigo-700 mt-1 font-medium">12 Exam Banks</div>
+          <div className="text-2xl font-extrabold text-slate-900">{questionCount || 0} Items</div>
+          <div className="text-xs text-indigo-700 mt-1 font-medium">Verified Active Questions</div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -92,8 +137,8 @@ export default function AdminOverviewPage() {
               <History className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">12,480</div>
-          <div className="text-xs text-emerald-700 mt-1 font-medium">100% Tamper-Proof</div>
+          <div className="text-2xl font-extrabold text-slate-900">{auditCount || 0}</div>
+          <div className="text-xs text-emerald-700 mt-1 font-medium">Immutable Security Events</div>
         </div>
       </div>
 
@@ -107,36 +152,39 @@ export default function AdminOverviewPage() {
           </h2>
 
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 text-xs">
-            <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100">
-              <div className="flex items-center justify-between">
-                <span className="font-extrabold text-purple-900 text-xs">Ph.D Entrance Exam 2026</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                  In Progress
-                </span>
+            {activeSchedule ? (
+              <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-purple-900 text-xs">
+                    {activeSchedule.exams?.title || "Active Examination"}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                    In Progress
+                  </span>
+                </div>
+                <div className="text-[11px] text-purple-700 mt-1">
+                  Duration: {activeSchedule.duration_minutes} Mins • Proctoring: {activeSchedule.proctoring_level}
+                </div>
               </div>
-              <div className="text-[11px] text-purple-700 mt-1">Computer Applications & Science</div>
-              <div className="mt-3 flex items-center justify-between text-slate-600 border-t border-purple-100 pt-2 text-[11px]">
-                <span>Candidates Online: <strong>42</strong></span>
-                <span>Proctor Feeds: <strong>Active</strong></span>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600">
+                <span className="font-bold text-slate-800 block mb-0.5">No Active Exam Session</span>
+                <span className="text-[11px]">Next session will appear when scheduled delivery windows open.</span>
               </div>
-            </div>
+            )}
 
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between text-slate-600">
                 <span>Lockdown Mode Enforcement:</span>
-                <strong className="text-purple-700 font-bold">Strict Kiosk</strong>
+                <strong className="text-purple-700 font-bold">SafeExam Lockdown Protocol</strong>
               </div>
               <div className="flex items-center justify-between text-slate-600">
                 <span>Auto-Save Frequency:</span>
                 <strong className="text-slate-800 font-bold">Every 30s</strong>
               </div>
               <div className="flex items-center justify-between text-slate-600">
-                <span>Proctor-to-Student Ratio:</span>
-                <strong className="text-slate-800 font-bold">1 : 25</strong>
-              </div>
-              <div className="flex items-center justify-between text-slate-600">
-                <span>Cloudflare WAF Threat Score:</span>
-                <strong className="text-emerald-700 font-bold">0 (Clean)</strong>
+                <span>Security Infrastructure:</span>
+                <strong className="text-emerald-700 font-bold">Cloudflare WAF / Active</strong>
               </div>
             </div>
 
@@ -151,7 +199,7 @@ export default function AdminOverviewPage() {
                 href="/admin/users"
                 className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-center border border-slate-200 transition-colors"
               >
-                Manage Faculty & Candidates →
+                Manage Institutional Roster →
               </Link>
             </div>
           </div>
@@ -173,30 +221,43 @@ export default function AdminOverviewPage() {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-bold text-[10px] tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Audit ID</th>
-                    <th className="py-3 px-4">Event Action</th>
-                    <th className="py-3 px-4">User</th>
-                    <th className="py-3 px-4">IP Address</th>
-                    <th className="py-3 px-4 text-right">Recorded</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {auditLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-3 px-4 font-mono font-medium text-slate-500">{log.id}</td>
-                      <td className="py-3 px-4 font-bold text-slate-800">{log.action}</td>
-                      <td className="py-3 px-4 text-slate-700">{log.user}</td>
-                      <td className="py-3 px-4 font-mono text-slate-500">{log.ip}</td>
-                      <td className="py-3 px-4 text-right text-slate-400 font-medium">{log.time}</td>
+            {latestAuditLogs && latestAuditLogs.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-bold text-[10px] tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Audit ID</th>
+                      <th className="py-3 px-4">Event Action</th>
+                      <th className="py-3 px-4">User</th>
+                      <th className="py-3 px-4">IP Address</th>
+                      <th className="py-3 px-4 text-right">Recorded</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {typedLatestLogs.map((log) => {
+                      const userObj = log.user_id ? userMap.get(log.user_id) : null;
+                      const userDisplay = userObj ? `${userObj.full_name} (${userObj.role})` : log.user_id ? `User ${log.user_id.slice(0, 6)}` : "System";
+
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-4 font-mono font-medium text-slate-500">{log.id.slice(0, 8).toUpperCase()}</td>
+                          <td className="py-3 px-4 font-bold text-slate-800">{log.action}</td>
+                          <td className="py-3 px-4 text-slate-700">{userDisplay}</td>
+                          <td className="py-3 px-4 font-mono text-slate-500">{log.ip_address || "127.0.0.1"}</td>
+                          <td className="py-3 px-4 text-right text-slate-400 font-medium">
+                            {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-10 text-center text-xs text-slate-500">
+                No audit events recorded yet. Operations will be logged here in real-time.
+              </div>
+            )}
           </div>
         </div>
       </div>

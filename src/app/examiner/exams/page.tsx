@@ -252,36 +252,8 @@ export default async function ExaminerExamsPage() {
               No Examination Blueprints Yet
             </h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              Create an exam blueprint to organize sections, assign questions, and define marking criteria.
+              Use the &ldquo;Compose New Exam&rdquo; button above to create an exam blueprint, organize sections, and link verified questions.
             </p>
-            <div className="mt-4">
-              <form
-                action={async (formData: FormData) => {
-                  "use server";
-                  await createExamAction(formData);
-                }}
-                className="inline-block"
-              >
-                <input
-                  type="hidden"
-                  name="title"
-                  value="Ph.D. Entrance Examination (Autumn Session)"
-                />
-                <input
-                  type="hidden"
-                  name="description"
-                  value="University-wide common entrance test covering Analytical Ability, Research Methodology, and Specialization."
-                />
-                <input type="hidden" name="requireSafeBrowser" value="on" />
-                <input type="hidden" name="shuffleQuestions" value="on" />
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer"
-                >
-                  Create Initial Blueprint
-                </button>
-              </form>
-            </div>
           </div>
         )}
       </div>
