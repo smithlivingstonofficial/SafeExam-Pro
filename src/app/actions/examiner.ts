@@ -440,3 +440,219 @@ export async function scheduleExamAction(formData: FormData): Promise<ActionResu
   revalidatePath("/examiner/schedules");
   return { success: true, data: newSchedule };
 }
+
+/**
+ * Bulk links multiple questions into an Exam Section at once.
+ */
+export async function bulkAddQuestionsToSectionAction(
+  sectionId: string,
+  questionIds: string[],
+  examId: string,
+  defaultMarks: number = 1.0,
+  startingOrderIndex: number = 1
+): Promise<ActionResult<{ addedCount: number }>> {
+  const user = await requireRole(["examiner", "admin"]);
+  if (!questionIds || questionIds.length === 0) {
+    return { error: "No questions selected for linking", code: "EMPTY_SELECTION" };
+  }
+
+  const supabase = await createClient();
+
+  const rows = questionIds.map((qId, idx) => ({
+    section_id: sectionId,
+    question_id: qId,
+    marks: defaultMarks,
+    order_index: startingOrderIndex + idx,
+  }));
+
+  const { error } = await supabase.from("exam_section_questions").insert(rows);
+
+  if (error) {
+    return { error: error.message, code: "BULK_ASSIGN_FAILED" };
+  }
+
+  await logAuditEvent({
+    userId: user.id,
+    action: "QUESTIONS_BULK_LINKED_TO_SECTION",
+    entityType: "exam_section_questions",
+    details: { sectionId, examId, count: questionIds.length, defaultMarks },
+  });
+
+  revalidatePath(`/examiner/exams/${examId}`);
+  return { success: true, data: { addedCount: questionIds.length } };
+}
+
+/**
+ * Removes a question from an Exam Section.
+ */
+export async function removeQuestionFromSectionAction(
+  sectionQuestionId: string,
+  examId: string
+): Promise<ActionResult> {
+  const user = await requireRole(["examiner", "admin"]);
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("exam_section_questions")
+    .delete()
+    .eq("id", sectionQuestionId);
+
+  if (error) {
+    return { error: error.message, code: "REMOVE_FAILED" };
+  }
+
+  await logAuditEvent({
+    userId: user.id,
+    action: "QUESTION_UNLINKED_FROM_SECTION",
+    entityType: "exam_section_questions",
+    entityId: sectionQuestionId,
+    details: { examId },
+  });
+
+  revalidatePath(`/examiner/exams/${examId}`);
+  return { success: true };
+}
+
+/**
+ * Deletes an Exam Section and unlinks all its questions.
+ */
+export async function deleteExamSectionAction(
+  sectionId: string,
+  examId: string
+): Promise<ActionResult> {
+  const user = await requireRole(["examiner", "admin"]);
+  const supabase = await createClient();
+
+  // First delete linked questions in this section
+  await supabase
+    .from("exam_section_questions")
+    .delete()
+    .eq("section_id", sectionId);
+
+  const { error } = await supabase
+    .from("exam_sections")
+    .delete()
+    .eq("id", sectionId);
+
+  if (error) {
+    return { error: error.message, code: "DELETE_SECTION_FAILED" };
+  }
+
+  await logAuditEvent({
+    userId: user.id,
+    action: "EXAM_SECTION_DELETED",
+    entityType: "exam_sections",
+    entityId: sectionId,
+    details: { examId },
+  });
+
+  revalidatePath(`/examiner/exams/${examId}`);
+  return { success: true };
+}
+
+/**
+ * Updates an Exam Blueprint status (e.g. Draft <-> Published).
+ */
+export async function updateExamStatusAction(
+  examId: string,
+  status: "draft" | "published" | "archived"
+): Promise<ActionResult> {
+  const user = await requireRole(["examiner", "admin"]);
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("exams")
+    .update({ status })
+    .eq("id", examId);
+
+  if (error) {
+    return { error: error.message, code: "STATUS_UPDATE_FAILED" };
+  }
+
+  await logAuditEvent({
+    userId: user.id,
+    action: "EXAM_STATUS_UPDATED",
+    entityType: "exams",
+    entityId: examId,
+    details: { status },
+  });
+
+  revalidatePath(`/examiner/exams/${examId}`);
+  revalidatePath("/examiner/exams");
+  revalidatePath("/examiner");
+  return { success: true };
+}
+
+/**
+ * Assigns candidates (either all candidates or filtered by department) to an Exam Schedule.
+ */
+export async function assignCandidatesToScheduleAction(
+  scheduleId: string,
+  departmentId?: string | null
+): Promise<ActionResult<{ assignedCount: number }>> {
+  const user = await requireRole(["examiner", "admin"]);
+  const supabase = await createClient();
+
+  // Find candidate profiles
+  let query = supabase
+    .from("profiles")
+    .select("id, department_id")
+    .eq("role", "candidate");
+
+  if (departmentId && departmentId !== "all") {
+    query = query.eq("department_id", departmentId);
+  }
+
+  const { data: candidates, error: candidateErr } = await query;
+  if (candidateErr || !candidates || candidates.length === 0) {
+    return {
+      error: "No candidates found matching the target department criteria",
+      code: "NO_CANDIDATES",
+    };
+  }
+
+  // Fetch already assigned candidate IDs for this schedule
+  const { data: existingAssignments } = await supabase
+    .from("exam_assignments")
+    .select("candidate_id")
+    .eq("schedule_id", scheduleId);
+
+  const existingSet = new Set((existingAssignments || []).map((a) => a.candidate_id));
+  const newCandidates = candidates.filter((c) => !existingSet.has(c.id));
+
+  if (newCandidates.length === 0) {
+    return {
+      success: true,
+      data: { assignedCount: 0 },
+    };
+  }
+
+  const rows = newCandidates.map((c) => ({
+    schedule_id: scheduleId,
+    candidate_id: c.id,
+    status: "assigned" as const,
+  }));
+
+  const { error: insertErr } = await supabase
+    .from("exam_assignments")
+    .insert(rows);
+
+  if (insertErr) {
+    return { error: insertErr.message, code: "ASSIGN_FAILED" };
+  }
+
+  await logAuditEvent({
+    userId: user.id,
+    action: "CANDIDATES_ASSIGNED_TO_SCHEDULE",
+    entityType: "exam_assignments",
+    details: {
+      scheduleId,
+      departmentId: departmentId || "all",
+      assignedCount: newCandidates.length,
+    },
+  });
+
+  revalidatePath("/examiner/schedules");
+  revalidatePath("/examiner");
+  return { success: true, data: { assignedCount: newCandidates.length } };
+}

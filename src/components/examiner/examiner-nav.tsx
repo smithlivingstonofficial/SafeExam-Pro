@@ -4,20 +4,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
-  FileSpreadsheet,
   CalendarCheck,
   Award,
   Layers,
   Sparkles,
-  ExternalLink,
+  LayoutDashboard,
 } from "lucide-react";
 
 const examinerNavItems = [
   {
-    label: "Question Banks",
+    label: "Control Center",
     href: "/examiner",
-    icon: BookOpen,
-    description: "Manage subject repositories and items",
+    icon: LayoutDashboard,
+    description: "Executive overview & exam pipeline",
+    exact: true,
   },
   {
     label: "Exam Composer",
@@ -26,10 +26,16 @@ const examinerNavItems = [
     description: "Blueprints, sections & question assembly",
   },
   {
-    label: "Exam Schedules",
+    label: "Exam Schedules & Roster",
     href: "/examiner/schedules",
     icon: CalendarCheck,
-    description: "Time windows & candidate assignments",
+    description: "Time windows & candidate enrollment",
+  },
+  {
+    label: "Question Banks",
+    href: "/examiner/banks",
+    icon: BookOpen,
+    description: "Common & department repositories",
   },
   {
     label: "Evaluation & Grading",
@@ -53,9 +59,9 @@ export function ExaminerNav() {
       <nav className="p-3 space-y-1.5 flex-1">
         {examinerNavItems.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/examiner" && pathname.startsWith(item.href));
+          const isActive = item.exact
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(item.href + "/");
 
           return (
             <Link
