@@ -1,11 +1,14 @@
 import { AdminSidebar } from "@/components/admin/admin-nav";
+import { requireRole } from "@/lib/auth/rbac";
 import { ShieldCheck } from "lucide-react";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Enforce server-side RBAC: Only admin role permitted
+  await requireRole(["admin"]);
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900 selection:bg-purple-600 selection:text-white">
       {/* Fixed Admin Sidebar */}

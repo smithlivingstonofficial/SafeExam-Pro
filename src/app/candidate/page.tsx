@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/actions/auth";
+import { requireRole } from "@/lib/auth/rbac";
 import {
   ShieldCheck,
   Calendar,
@@ -13,7 +14,8 @@ import {
   User,
 } from "lucide-react";
 
-export default function CandidateDashboard() {
+export default async function CandidateDashboard() {
+  await requireRole(["candidate", "admin"]);
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white">
       {/* Top Navigation */}

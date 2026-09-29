@@ -33,25 +33,7 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
 
   const { email, password, role } = validation.data;
 
-  // 2. Demo fallback if Supabase is still on placeholder credentials
-  const isPlaceholderUrl =
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder-project");
-
-  if (isPlaceholderUrl) {
-    // Audit log demo login
-    await logAuditEvent({
-      userId: null,
-      action: "USER_LOGIN_DEMO",
-      entityType: "auth",
-      details: { email, role: role || "candidate", mode: "development_demo" },
-    });
-
-    // Route directly to the selected role dashboard
-    redirect(`/${role || "candidate"}`);
-  }
-
-  // 3. Authenticate with Supabase
+  // 2. Strict Supabase Password Verification
   const supabase = await createClient();
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email,
@@ -59,20 +41,46 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
   });
 
   if (authError || !authData.user) {
+    // Record failed login security event
+    await logAuditEvent({
+      userId: null,
+      action: "USER_LOGIN_FAILED",
+      entityType: "auth",
+      details: { email, reason: authError?.message || "Invalid credentials" },
+    });
+
     return {
-      error: authError?.message || "Invalid email or password",
+      error: "Invalid university email or password. Please verify credentials.",
       code: "AUTH_FAILED",
     };
   }
 
-  // 4. Retrieve user profile to determine actual role
+  // 3. Retrieve user profile to determine verified role and account status
   const { data } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, is_active, full_name")
     .eq("id", authData.user.id)
     .maybeSingle();
 
-  const profile = data as { role?: UserRole } | null;
+  const profile = data as { role?: UserRole; is_active?: boolean; full_name?: string } | null;
+
+  // Check if account is suspended
+  if (profile && profile.is_active === false) {
+    await supabase.auth.signOut();
+    await logAuditEvent({
+      userId: authData.user.id,
+      action: "SUSPENDED_USER_LOGIN_BLOCKED",
+      entityType: "profiles",
+      entityId: authData.user.id,
+      details: { email },
+    });
+
+    return {
+      error: "Your institutional account has been deactivated. Please contact the Examination Board.",
+      code: "ACCOUNT_SUSPENDED",
+    };
+  }
+
   const isMasterAdmin = email.toLowerCase() === "smithlivingston2005@gmail.com";
   let userRole: UserRole = isMasterAdmin ? "admin" : (profile?.role || role || "candidate");
 
@@ -86,7 +94,7 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
     userRole = "admin";
   }
 
-  // 5. Audit Log
+  // 4. Audit Log
   await logAuditEvent({
     userId: authData.user.id,
     action: "USER_LOGIN_SUCCESS",
@@ -95,7 +103,7 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
     details: { role: userRole, isMasterAdmin },
   });
 
-  // 6. Role-Based Navigation
+  // 5. Role-Based Navigation
   redirect(`/${userRole}`);
 }
 
@@ -121,22 +129,7 @@ export async function registerAction(formData: FormData): Promise<AuthResponse> 
 
   const { fullName, email, password, department, phone } = validation.data;
 
-  // 2. Demo fallback
-  const isPlaceholderUrl =
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder-project");
-
-  if (isPlaceholderUrl) {
-    await logAuditEvent({
-      userId: null,
-      action: "CANDIDATE_REGISTER_DEMO",
-      entityType: "auth",
-      details: { fullName, email, department, mode: "development_demo" },
-    });
-    redirect("/candidate");
-  }
-
-  // 3. Register user with Supabase Auth
+  // 2. Register user securely with Supabase Auth
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,

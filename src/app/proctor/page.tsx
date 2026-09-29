@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/actions/auth";
+import { requireRole } from "@/lib/auth/rbac";
 import {
   ShieldCheck,
   Camera,
@@ -14,7 +15,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-export default function ProctorDashboard() {
+export default async function ProctorDashboard() {
+  await requireRole(["proctor", "admin"]);
   const activeCandidates = [
     { id: "C-101", name: "Alexander Vance", stream: "Live (720p)", flags: 0, status: "Normal", progress: "42/60 answered" },
     { id: "C-102", name: "Sophia Reynolds", stream: "Live (720p)", flags: 2, status: "Voice Anomaly Flagged", progress: "38/60 answered" },

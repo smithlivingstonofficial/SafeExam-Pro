@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Users,
   Briefcase,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { UserRole } from "@/types/database";
 
@@ -21,22 +23,7 @@ export default function LoginPage() {
   const [selectedStaffRole, setSelectedStaffRole] = useState<UserRole>("examiner");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Form states for quick-demo fill
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleQuickDemo = (role: UserRole, demoEmail: string) => {
-    if (role === "candidate") {
-      setRoleCategory("candidate");
-    } else {
-      setRoleCategory("staff");
-      setSelectedStaffRole(role);
-    }
-    setEmail(demoEmail);
-    setPassword("university2026!");
-    setErrorMessage(null);
-  };
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,11 +41,10 @@ export default function LoginPage() {
         setIsLoading(false);
       }
     } catch (err: unknown) {
-      // In Next.js, redirect() throws a NEXT_REDIRECT error which is caught here if not rethrown
       if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) {
-        return; // Redirecting successfully
+        return; // Redirecting to authorized portal
       }
-      setErrorMessage("An unexpected authentication error occurred. Please try again.");
+      setErrorMessage("Authentication failed. Please verify your credentials and try again.");
       setIsLoading(false);
     }
   }
@@ -77,7 +63,7 @@ export default function LoginPage() {
                 SafeExam Pro
               </span>
               <span className="ml-2 text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700">
-                Single University
+                University Entrance
               </span>
             </div>
           </Link>
@@ -94,7 +80,6 @@ export default function LoginPage() {
       {/* Login Card Section */}
       <main className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
-          {/* Card Container */}
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8">
             <div className="text-center mb-6">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 text-blue-700 mb-3 border border-blue-100">
@@ -104,7 +89,7 @@ export default function LoginPage() {
                 Apex State University
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Entrance Examination & Proctoring Access Gateway
+                Entrance Examination & Institutional Access Gateway
               </p>
             </div>
 
@@ -123,7 +108,7 @@ export default function LoginPage() {
                 }`}
               >
                 <Users className="w-4 h-4" />
-                <span>Candidate</span>
+                <span>Candidate Portal</span>
               </button>
 
               <button
@@ -139,7 +124,7 @@ export default function LoginPage() {
                 }`}
               >
                 <Briefcase className="w-4 h-4" />
-                <span>Staff & Admin</span>
+                <span>Faculty & Admin</span>
               </button>
             </div>
 
@@ -176,7 +161,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Form */}
+            {/* High-Security Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -190,12 +175,10 @@ export default function LoginPage() {
                     type="email"
                     name="email"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
                     placeholder={
                       roleCategory === "candidate"
-                        ? "candidate@student.apex.edu"
-                        : "faculty@apex.edu"
+                        ? "candidate@example.com"
+                        : "admin@apex.edu"
                     }
                     className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
                   />
@@ -207,23 +190,25 @@ export default function LoginPage() {
                   <label className="block text-xs font-bold text-slate-700">
                     Password
                   </label>
-                  <span className="text-[11px] text-blue-700 hover:underline cursor-pointer">
-                    Forgot password?
-                  </span>
                 </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <KeyRound className="w-4 h-4" />
                   </div>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     name="password"
                     required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+                    placeholder="Enter your password"
+                    className="w-full pl-9 pr-10 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -232,61 +217,24 @@ export default function LoginPage() {
                 disabled={isLoading}
                 className="w-full mt-2 py-3 px-4 rounded-xl bg-blue-700 hover:bg-blue-800 font-bold text-sm text-white shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
               >
-                <span>{isLoading ? "Verifying Credentials..." : "Authenticate & Sign In"}</span>
+                <span>{isLoading ? "Authenticating..." : "Sign In"}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
 
-            {/* Quick Demo Pre-fill helpers */}
-            <div className="mt-6 pt-5 border-t border-slate-200">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-2 text-center">
-                Development Quick Demo Logins
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemo("candidate", "candidate1@apex.edu")}
-                  className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-center"
-                >
-                  Candidate Demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemo("examiner", "examiner@apex.edu")}
-                  className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-center"
-                >
-                  Examiner Demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemo("proctor", "proctor@apex.edu")}
-                  className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-center"
-                >
-                  Proctor Demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickDemo("admin", "smithlivingston2005@gmail.com")}
-                  className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-center"
-                >
-                  Admin (Smith Livingston)
-                </button>
-              </div>
-            </div>
-
-            {/* Sign Up Link for Candidates */}
-            <div className="mt-6 text-center text-xs text-slate-500">
-              New entrance exam applicant?{" "}
+            {/* Candidate Registration Link */}
+            <div className="mt-6 text-center text-xs text-slate-500 pt-4 border-t border-slate-100">
+              New entrance exam candidate?{" "}
               <Link href="/register" className="font-bold text-blue-700 hover:underline">
                 Register Candidate Account
               </Link>
             </div>
           </div>
 
-          {/* Security Assurance */}
+          {/* Security Indicator */}
           <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
             <Lock className="w-3.5 h-3.5 text-slate-400" />
-            <span>Secured by SafeExam University Lockdown Protocol</span>
+            <span>Encrypted with Argon2/Bcrypt • SafeExam Security Protocol</span>
           </div>
         </div>
       </main>
