@@ -11,6 +11,8 @@ import {
   Layers,
   ArrowRight,
   Database as DbIcon,
+  Globe,
+  Building2,
 } from "lucide-react";
 
 export default async function ExaminerQuestionBanksPage() {
@@ -23,19 +25,44 @@ export default async function ExaminerQuestionBanksPage() {
       id,
       name,
       description,
+      is_common,
+      department_id,
       created_at
     `)
     .order("created_at", { ascending: false });
 
+  // Fetch all departments
+  const { data: depts } = await supabase
+    .from("departments")
+    .select("id, name, code")
+    .order("name", { ascending: true });
+
+  interface RawDept {
+    id: string;
+    name: string;
+    code: string | null;
+  }
+
+  const departments = (depts || []) as RawDept[];
+  const deptMap = new Map(departments.map((d) => [d.id, d]));
+
   // Fetch question counts per bank
   const { data: questions } = await supabase
     .from("questions")
-    .select("bank_id, type");
+    .select("bank_id, type, is_common, department_id");
 
   // Count questions per bank
   const questionCountMap: Record<string, number> = {};
+  let totalCommonQuestions = 0;
+  let totalDeptQuestions = 0;
+
   questions?.forEach((q) => {
     questionCountMap[q.bank_id] = (questionCountMap[q.bank_id] || 0) + 1;
+    if (q.is_common !== false) {
+      totalCommonQuestions++;
+    } else {
+      totalDeptQuestions++;
+    }
   });
 
   const totalQuestions = questions?.length || 0;
@@ -64,18 +91,22 @@ export default async function ExaminerQuestionBanksPage() {
           <div className="text-2xl font-extrabold text-slate-900">
             {totalQuestions} {totalQuestions === 1 ? "Item" : "Items"}
           </div>
-          <div className="text-xs text-emerald-700 font-semibold mt-1">
-            Verified & Active
+          <div className="text-xs text-emerald-700 font-semibold mt-1 flex items-center gap-1">
+            <span>{totalCommonQuestions} Universal</span>
+            <span>•</span>
+            <span>{totalDeptQuestions} Dept-Specific</span>
           </div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs">
           <div className="text-xs uppercase font-bold text-slate-500 mb-1">
-            Item Formats
+            Academic Scope
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">7 Types</div>
-          <div className="text-xs text-slate-500 mt-1">
-            MCQ, LaTeX, Code, Blanks
+          <div className="text-2xl font-extrabold text-slate-900">
+            {departments.length} {departments.length === 1 ? "Dept" : "Depts"}
+          </div>
+          <div className="text-xs text-purple-700 font-semibold mt-1">
+            Curriculum Partitioning
           </div>
         </div>
 
@@ -138,6 +169,26 @@ export default async function ExaminerQuestionBanksPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Academic Scope / Department Binding
+                  </label>
+                  <select
+                    name="departmentId"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-600 bg-slate-50 focus:bg-white text-slate-900 font-medium"
+                  >
+                    <option value="">🌐 Universal Common Bank (All Departments)</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        🏛️ {dept.name} {dept.code ? `(${dept.code})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Universal repositories contain common items; departmental banks are dedicated to a specific curriculum.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Description & Syllabus Scope
                   </label>
                   <textarea
@@ -168,6 +219,9 @@ export default async function ExaminerQuestionBanksPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {banks.map((bank) => {
               const count = questionCountMap[bank.id] || 0;
+              const isBankCommon = bank.is_common !== false;
+              const boundDept = bank.department_id ? deptMap.get(bank.department_id) : null;
+
               return (
                 <div
                   key={bank.id}
@@ -178,9 +232,22 @@ export default async function ExaminerQuestionBanksPage() {
                       <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/80 text-indigo-700 flex items-center justify-center shrink-0">
                         <BookOpen className="w-5 h-5" />
                       </div>
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                        {count} {count === 1 ? "Question" : "Questions"}
-                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                          {count} {count === 1 ? "Question" : "Questions"}
+                        </span>
+                        {isBankCommon ? (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
+                            <Globe className="w-2.5 h-2.5" />
+                            <span>Universal</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1">
+                            <Building2 className="w-2.5 h-2.5" />
+                            <span>{boundDept?.code || "Dept Bound"}</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <h3 className="font-bold text-sm text-slate-900 mt-3">

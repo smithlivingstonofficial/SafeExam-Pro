@@ -17,6 +17,8 @@ import {
   CheckCircle,
   Hash,
   Award,
+  Globe,
+  Building2,
 } from "lucide-react";
 
 interface Props {
@@ -38,6 +40,21 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
     notFound();
   }
 
+  // Fetch departments
+  const { data: depts } = await supabase
+    .from("departments")
+    .select("id, name, code")
+    .order("name", { ascending: true });
+
+  interface RawDept {
+    id: string;
+    name: string;
+    code: string | null;
+  }
+
+  const departments = (depts || []) as RawDept[];
+  const deptMap = new Map(departments.map((d) => [d.id, d]));
+
   // Fetch sections
   const { data: sections } = await supabase
     .from("exam_sections")
@@ -56,7 +73,7 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
   const linkedQuestionIds = sectionQuestions?.map((sq) => sq.question_id) || [];
   const { data: linkedQuestions } = await supabase
     .from("questions")
-    .select("id, type, subject, difficulty, content")
+    .select("id, type, subject, difficulty, content, is_common, department_id")
     .in("id", linkedQuestionIds.length ? linkedQuestionIds : ["00000000-0000-0000-0000-000000000000"]);
 
   const questionMap = new Map((linkedQuestions || []).map((q) => [q.id, q]));
@@ -64,8 +81,8 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
   // Fetch available questions from banks for quick linking
   const { data: availableQuestions } = await supabase
     .from("questions")
-    .select("id, subject, type, difficulty, content, bank_id")
-    .limit(30);
+    .select("id, subject, type, difficulty, content, bank_id, is_common, department_id")
+    .limit(50);
 
   const settings = exam.settings as {
     require_safe_browser?: boolean;
@@ -184,6 +201,36 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Delivery Scope *
+                  </label>
+                  <select
+                    name="scope"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 font-medium"
+                  >
+                    <option value="common">🌐 Universal Common (All Candidates)</option>
+                    <option value="department_specific">🏛️ Department-Specific Delivery</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Target Academic Department (If Dept-Specific)
+                  </label>
+                  <select
+                    name="departmentId"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white text-slate-900"
+                  >
+                    <option value="">-- Optional / Select Department --</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name} {dept.code ? `(${dept.code})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
@@ -246,6 +293,9 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
                 negative_marks?: number;
               } | null;
 
+              const isSectionCommon = section.scope !== "department_specific";
+              const sectionDept = section.department_id ? deptMap.get(section.department_id) : null;
+
               return (
                 <div
                   key={section.id}
@@ -253,13 +303,26 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="w-5 h-5 rounded-md bg-indigo-50 text-indigo-700 font-bold text-xs flex items-center justify-center">
                           {sIndex + 1}
                         </span>
                         <h3 className="text-sm font-bold text-slate-900">
                           {section.title}
                         </h3>
+                        {isSectionCommon ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center gap-1">
+                            <Globe className="w-2.5 h-2.5" />
+                            <span>Universal Common</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 flex items-center gap-1">
+                            <Building2 className="w-2.5 h-2.5" />
+                            <span>
+                              Dept: {sectionDept?.name || "Specialized"} {sectionDept?.code ? `(${sectionDept.code})` : ""}
+                            </span>
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                         <span>
@@ -287,13 +350,22 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
                       </summary>
 
                       <div className="absolute right-0 mt-2 w-96 bg-white border border-slate-200 rounded-2xl p-4 shadow-xl z-30 max-h-96 overflow-y-auto">
-                        <h4 className="text-xs font-bold text-slate-900 mb-2">
-                          Available Questions from Banks
-                        </h4>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-xs font-bold text-slate-900">
+                            Available Questions from Banks
+                          </h4>
+                          <span className="text-[10px] text-slate-500">
+                            {isSectionCommon ? "Universal Pool" : `Target: ${sectionDept?.code || "Dept"}`}
+                          </span>
+                        </div>
                         {availableQuestions && availableQuestions.length > 0 ? (
                           <div className="space-y-2">
                             {availableQuestions.map((q) => {
                               const content = q.content as { text?: string } | null;
+                              const isQCommon = q.is_common !== false;
+                              const qDept = q.department_id ? deptMap.get(q.department_id) : null;
+                              const isMatchedDept = !isSectionCommon && q.department_id === section.department_id;
+
                               return (
                                 <form
                                   key={q.id}
@@ -307,14 +379,34 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
                                       assigned.length + 1
                                     );
                                   }}
-                                  className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 flex items-center justify-between gap-2"
+                                  className={`p-2.5 rounded-xl border transition-colors flex items-center justify-between gap-2 ${
+                                    isMatchedDept
+                                      ? "bg-purple-50/50 border-purple-200 hover:bg-purple-50"
+                                      : "border-slate-200 hover:bg-slate-50"
+                                  }`}
                                 >
                                   <div className="min-w-0">
                                     <div className="text-xs font-semibold text-slate-800 truncate">
                                       {content?.text || "Question statement"}
                                     </div>
-                                    <div className="text-[10px] text-slate-400">
-                                      {q.subject} • Level {q.difficulty}/5
+                                    <div className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                      {isQCommon ? (
+                                        <span className="font-bold text-indigo-700 bg-indigo-50 px-1 py-0.2 rounded border border-indigo-100">
+                                          🌐 Common
+                                        </span>
+                                      ) : (
+                                        <span className={`font-bold px-1 py-0.2 rounded border ${
+                                          isMatchedDept
+                                            ? "text-purple-700 bg-purple-100/80 border-purple-300 font-extrabold"
+                                            : "text-slate-600 bg-slate-100 border-slate-200"
+                                        }`}>
+                                          🏛️ {qDept?.code || "Dept"}
+                                        </span>
+                                      )}
+                                      <span>•</span>
+                                      <span>{q.subject}</span>
+                                      <span>•</span>
+                                      <span>Lvl {q.difficulty}/5</span>
                                     </div>
                                   </div>
                                   <button
@@ -342,6 +434,8 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
                       {assigned.map((sq, sqIdx) => {
                         const qData = questionMap.get(sq.question_id);
                         const qContent = qData?.content as { text?: string } | null;
+                        const isQCommon = qData?.is_common !== false;
+                        const qDept = qData?.department_id ? deptMap.get(qData.department_id) : null;
 
                         return (
                           <div
@@ -355,6 +449,15 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
                               <span className="font-semibold text-slate-800 truncate">
                                 {qContent?.text || "Question"}
                               </span>
+                              {isQCommon ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 shrink-0">
+                                  🌐 Common
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 border border-purple-200 text-purple-700 shrink-0">
+                                  🏛️ {qDept?.code || "Dept"}
+                                </span>
+                              )}
                               <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-600 shrink-0">
                                 {qData?.type?.replace("_", " ") || "item"}
                               </span>
@@ -369,7 +472,7 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
                     </div>
                   ) : (
                     <div className="text-xs text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">
-                      No questions linked to this section yet. Click "Link Questions" above to assign from Question Banks.
+                      No questions linked to this section yet. Click &ldquo;Link Questions&rdquo; above to assign from Question Banks.
                     </div>
                   )}
                 </div>

@@ -22,6 +22,23 @@ export default async function NewQuestionPage({ params }: Props) {
     notFound();
   }
 
+  const { data: depts } = await supabase
+    .from("departments")
+    .select("id, name, code")
+    .order("name", { ascending: true });
+
+  interface RawDept {
+    id: string;
+    name: string;
+    code: string | null;
+  }
+
+  const availableDepartments = ((depts || []) as RawDept[]).map((d) => ({
+    id: d.id,
+    name: d.name,
+    code: d.code,
+  }));
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Breadcrumb Navigation */}
@@ -47,13 +64,17 @@ export default async function NewQuestionPage({ params }: Props) {
             Author Question Item
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Add items to <span className="font-semibold text-slate-700">{bank.name}</span>. Supports LaTeX mathematics, MCQ single/multi, coding test cases, and difficulty indexing.
+            Add items to <span className="font-semibold text-slate-700">{bank.name}</span>. Supports LaTeX mathematics, MCQ single/multi, coding test cases, and department criteria.
           </p>
         </div>
       </div>
 
       {/* Authoring Form */}
-      <QuestionForm bankId={bank.id} bankName={bank.name} />
+      <QuestionForm
+        bankId={bank.id}
+        bankName={bank.name}
+        availableDepartments={availableDepartments}
+      />
     </div>
   );
 }

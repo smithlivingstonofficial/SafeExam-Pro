@@ -26,9 +26,15 @@ export interface ActionResult<T = unknown> {
 export async function createQuestionBankAction(formData: FormData): Promise<ActionResult> {
   const user = await requireRole(["examiner", "admin"]);
 
+  const scope = (formData.get("scope") as string) || "common";
+  const departmentId = (formData.get("departmentId") as string) || null;
+  const isCommon = scope !== "department_specific" && (!departmentId || departmentId === "");
+
   const rawData = {
     name: formData.get("name") as string,
     description: (formData.get("description") as string) || null,
+    isCommon,
+    departmentId: isCommon ? undefined : (departmentId || undefined),
   };
 
   const validation = createQuestionBankSchema.safeParse(rawData);
@@ -45,6 +51,8 @@ export async function createQuestionBankAction(formData: FormData): Promise<Acti
     .insert({
       name: validation.data.name,
       description: validation.data.description,
+      department_id: validation.data.isCommon ? null : (validation.data.departmentId || null),
+      is_common: validation.data.isCommon,
       created_by: user.id,
     })
     .select("id, name")
@@ -62,7 +70,11 @@ export async function createQuestionBankAction(formData: FormData): Promise<Acti
     action: "QUESTION_BANK_CREATED",
     entityType: "question_banks",
     entityId: newBank.id,
-    details: { name: newBank.name },
+    details: {
+      name: newBank.name,
+      isCommon: validation.data.isCommon,
+      departmentId: validation.data.departmentId,
+    },
   });
 
   revalidatePath("/examiner");
@@ -123,6 +135,8 @@ export async function createQuestionAction(payload: unknown): Promise<ActionResu
     .insert({
       bank_id: q.bankId,
       created_by: user.id,
+      department_id: q.isCommon ? null : (q.departmentId || null),
+      is_common: q.isCommon,
       type: q.type,
       content: contentJson,
       options: optionsJson,
@@ -136,7 +150,7 @@ export async function createQuestionAction(payload: unknown): Promise<ActionResu
       tags: q.tags || [],
       version: 1,
     })
-    .select("id, subject, type")
+    .select("id, subject, type, department_id, is_common")
     .single();
 
   if (error || !newQuestion) {
@@ -151,7 +165,13 @@ export async function createQuestionAction(payload: unknown): Promise<ActionResu
     action: "QUESTION_CREATED",
     entityType: "questions",
     entityId: newQuestion.id,
-    details: { bankId: q.bankId, type: q.type, subject: q.subject },
+    details: {
+      bankId: q.bankId,
+      type: q.type,
+      subject: q.subject,
+      isCommon: q.isCommon,
+      departmentId: q.departmentId,
+    },
   });
 
   revalidatePath(`/examiner/banks/${q.bankId}`);
@@ -260,6 +280,8 @@ export async function createExamSectionAction(formData: FormData): Promise<Actio
   const rawData = {
     examId: formData.get("examId") as string,
     title: formData.get("title") as string,
+    scope: (formData.get("scope") as "common" | "department_specific") || "common",
+    departmentId: (formData.get("departmentId") as string) || undefined,
     orderIndex: formData.get("orderIndex"),
     timeLimitMinutes: formData.get("timeLimitMinutes") || null,
     correctMarks: formData.get("correctMarks"),
@@ -283,6 +305,8 @@ export async function createExamSectionAction(formData: FormData): Promise<Actio
     .insert({
       exam_id: s.examId,
       title: s.title,
+      scope: s.scope,
+      department_id: s.scope === "common" ? null : (s.departmentId || null),
       order_index: s.orderIndex,
       time_limit_minutes: s.timeLimitMinutes || null,
       marking_scheme: {
@@ -291,7 +315,7 @@ export async function createExamSectionAction(formData: FormData): Promise<Actio
         partial_marks: s.partialMarks,
       },
     })
-    .select("id, title")
+    .select("id, title, scope, department_id")
     .single();
 
   if (error || !newSection) {

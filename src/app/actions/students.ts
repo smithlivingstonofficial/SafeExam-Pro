@@ -344,9 +344,19 @@ export async function reassignStudentDepartmentAction(
 
   const supabase = createAdminClient();
 
+  // Resolve department_id
+  const { data: deptRow } = await supabase
+    .from("departments")
+    .select("id")
+    .or(`name.eq.${department},code.eq.${department}`)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("profiles")
-    .update({ department })
+    .update({
+      department,
+      department_id: deptRow ? deptRow.id : null,
+    })
     .eq("id", candidateId);
 
   if (error) {
@@ -358,7 +368,7 @@ export async function reassignStudentDepartmentAction(
     action: "STUDENT_DEPARTMENT_REASSIGNED",
     entityType: "profiles",
     entityId: candidateId,
-    details: { newDepartment: department },
+    details: { newDepartment: department, departmentId: deptRow?.id },
   });
 
   revalidatePath("/admin/students");
@@ -387,9 +397,19 @@ export async function bulkReassignStudentsDepartmentAction(
 
   const supabase = createAdminClient();
 
+  // Resolve department_id
+  const { data: deptRow } = await supabase
+    .from("departments")
+    .select("id")
+    .or(`name.eq.${department},code.eq.${department}`)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("profiles")
-    .update({ department })
+    .update({
+      department,
+      department_id: deptRow ? deptRow.id : null,
+    })
     .in("id", candidateIds);
 
   if (error) {
@@ -400,7 +420,7 @@ export async function bulkReassignStudentsDepartmentAction(
     userId: user.id,
     action: "BULK_STUDENTS_DEPARTMENT_REASSIGNED",
     entityType: "profiles",
-    details: { count: candidateIds.length, newDepartment: department },
+    details: { count: candidateIds.length, newDepartment: department, departmentId: deptRow?.id },
   });
 
   revalidatePath("/admin/students");
@@ -453,6 +473,20 @@ export async function createStudentAction(formData: FormData): Promise<ActionRes
   }
 
   const newUserId = authData.user.id;
+
+  // Resolve department_id and link profile
+  const { data: deptRow } = await supabase
+    .from("departments")
+    .select("id")
+    .or(`name.eq.${department},code.eq.${department}`)
+    .maybeSingle();
+
+  if (deptRow) {
+    await supabase
+      .from("profiles")
+      .update({ department_id: deptRow.id })
+      .eq("id", newUserId);
+  }
 
   // If a schedule was specified, assign the candidate immediately
   if (scheduleId) {

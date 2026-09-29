@@ -22,6 +22,8 @@ export const bloomLevelEnum = z.enum([
 export const createQuestionBankSchema = z.object({
   name: z.string().min(3, "Bank title must be at least 3 characters").max(120),
   description: z.string().max(500).optional().nullable(),
+  departmentId: z.string().uuid("Invalid department identifier").optional().nullable().or(z.literal("")),
+  isCommon: z.boolean().default(true),
 });
 
 export const createQuestionSchema = z.object({
@@ -35,6 +37,8 @@ export const createQuestionSchema = z.object({
   questionText: z.string().min(5, "Question statement must be at least 5 characters"),
   latexCode: z.string().optional().nullable(),
   explanation: z.string().optional().nullable(),
+  departmentId: z.string().uuid("Invalid department identifier").optional().nullable().or(z.literal("")),
+  isCommon: z.boolean().default(true),
   options: z.array(
     z.object({
       id: z.string(),
@@ -68,6 +72,8 @@ export const createExamSchema = z.object({
 export const createExamSectionSchema = z.object({
   examId: z.string().uuid(),
   title: z.string().min(2, "Section title required").max(100),
+  scope: z.enum(["common", "department_specific"]).default("common"),
+  departmentId: z.string().uuid("Invalid department identifier").optional().nullable().or(z.literal("")),
   orderIndex: z.coerce.number().int().min(1).default(1),
   timeLimitMinutes: z.coerce.number().int().positive().optional().nullable(),
   correctMarks: z.coerce.number().positive().default(1.0),

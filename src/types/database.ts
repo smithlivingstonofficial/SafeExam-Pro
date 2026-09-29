@@ -70,6 +70,7 @@ export interface Database {
           avatar_url: string | null;
           phone: string | null;
           department: string | null;
+          department_id: string | null;
           is_active: boolean;
           metadata: Json;
           created_at: string;
@@ -82,6 +83,7 @@ export interface Database {
           avatar_url?: string | null;
           phone?: string | null;
           department?: string | null;
+          department_id?: string | null;
           is_active?: boolean;
           metadata?: Json;
           created_at?: string;
@@ -93,6 +95,7 @@ export interface Database {
           avatar_url?: string | null;
           phone?: string | null;
           department?: string | null;
+          department_id?: string | null;
           is_active?: boolean;
           metadata?: Json;
           updated_at?: string;
@@ -132,6 +135,8 @@ export interface Database {
           id: string;
           name: string;
           description: string | null;
+          department_id: string | null;
+          is_common: boolean;
           created_by: string | null;
           created_at: string;
         };
@@ -139,12 +144,16 @@ export interface Database {
           id?: string;
           name: string;
           description?: string | null;
+          department_id?: string | null;
+          is_common?: boolean;
           created_by?: string | null;
           created_at?: string;
         };
         Update: {
           name?: string;
           description?: string | null;
+          department_id?: string | null;
+          is_common?: boolean;
         };
         Relationships: [];
       };
@@ -153,6 +162,8 @@ export interface Database {
           id: string;
           bank_id: string;
           created_by: string | null;
+          department_id: string | null;
+          is_common: boolean;
           type: QuestionType;
           content: Json;
           options: Json;
@@ -173,6 +184,8 @@ export interface Database {
           id?: string;
           bank_id: string;
           created_by?: string | null;
+          department_id?: string | null;
+          is_common?: boolean;
           type: QuestionType;
           content: Json;
           options?: Json;
@@ -190,6 +203,8 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          department_id?: string | null;
+          is_common?: boolean;
           type?: QuestionType;
           content?: Json;
           options?: Json;
@@ -245,6 +260,8 @@ export interface Database {
           id: string;
           exam_id: string;
           title: string;
+          scope: "common" | "department_specific";
+          department_id: string | null;
           order_index: number;
           time_limit_minutes: number | null;
           marking_scheme: Json;
@@ -255,6 +272,8 @@ export interface Database {
           id?: string;
           exam_id: string;
           title: string;
+          scope?: "common" | "department_specific";
+          department_id?: string | null;
           order_index: number;
           time_limit_minutes?: number | null;
           marking_scheme?: Json;
@@ -263,6 +282,8 @@ export interface Database {
         };
         Update: {
           title?: string;
+          scope?: "common" | "department_specific";
+          department_id?: string | null;
           order_index?: number;
           time_limit_minutes?: number | null;
           marking_scheme?: Json;

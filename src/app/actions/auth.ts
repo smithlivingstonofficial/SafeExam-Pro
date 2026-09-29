@@ -209,13 +209,28 @@ export async function registerAction(formData: FormData): Promise<AuthResponse> 
 
   const isMaster = email.toLowerCase() === "smithlivingston2005@gmail.com";
 
+  // 3. Resolve department_id and link profile
+  const adminClient = (await import("@/lib/supabase/server")).createAdminClient();
+  const { data: deptRow } = await adminClient
+    .from("departments")
+    .select("id")
+    .or(`name.eq.${department},code.eq.${department}`)
+    .maybeSingle();
+
+  if (deptRow) {
+    await adminClient
+      .from("profiles")
+      .update({ department_id: deptRow.id })
+      .eq("id", data.user.id);
+  }
+
   // 4. Audit Log
   await logAuditEvent({
     userId: data.user.id,
     action: isMaster ? "MASTER_ADMIN_REGISTERED" : "CANDIDATE_REGISTERED",
     entityType: "profiles",
     entityId: data.user.id,
-    details: { fullName, email, department, role: isMaster ? "admin" : "candidate" },
+    details: { fullName, email, department, departmentId: deptRow?.id, role: isMaster ? "admin" : "candidate" },
   });
 
   redirect(isMaster ? "/admin" : "/candidate");

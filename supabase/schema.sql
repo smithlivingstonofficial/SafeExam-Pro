@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     avatar_url TEXT,
     phone TEXT,
     department TEXT,
+    department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
     is_active BOOLEAN NOT NULL DEFAULT true,
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
@@ -115,6 +116,8 @@ CREATE TABLE IF NOT EXISTS public.question_banks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     description TEXT,
+    department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
+    is_common BOOLEAN NOT NULL DEFAULT true,
     created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
@@ -124,6 +127,8 @@ CREATE TABLE IF NOT EXISTS public.questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     bank_id UUID REFERENCES public.question_banks(id) ON DELETE CASCADE,
     created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
+    is_common BOOLEAN NOT NULL DEFAULT true,
     type question_type NOT NULL DEFAULT 'mcq_single',
     content JSONB NOT NULL,
     options JSONB DEFAULT '[]'::jsonb,
@@ -164,6 +169,8 @@ CREATE TABLE IF NOT EXISTS public.exam_sections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     exam_id UUID NOT NULL REFERENCES public.exams(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT 'common' CHECK (scope IN ('common', 'department_specific')),
+    department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
     order_index INTEGER NOT NULL DEFAULT 1,
     time_limit_minutes INTEGER,
     marking_scheme JSONB NOT NULL DEFAULT '{

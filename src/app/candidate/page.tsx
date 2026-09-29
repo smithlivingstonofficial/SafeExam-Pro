@@ -14,11 +14,32 @@ import {
   FileText,
   User,
   Inbox,
+  Building2,
+  Globe,
 } from "lucide-react";
 
 export default async function CandidateDashboard() {
   const user = await requireRole(["candidate", "admin"]);
   const supabase = await createClient();
+
+  // Fetch candidate profile and enrolled department
+  const { data: candidateProfile } = await supabase
+    .from("profiles")
+    .select("id, full_name, department_id, department")
+    .eq("id", user.id)
+    .single();
+
+  let enrolledDeptName = candidateProfile?.department || null;
+  if (candidateProfile?.department_id) {
+    const { data: deptData } = await supabase
+      .from("departments")
+      .select("name, code")
+      .eq("id", candidateProfile.department_id)
+      .single();
+    if (deptData) {
+      enrolledDeptName = `${deptData.name}${deptData.code ? ` (${deptData.code})` : ""}`;
+    }
+  }
 
   // Fetch real assignments for this candidate
   const { data: assignments } = await supabase
@@ -97,6 +118,19 @@ export default async function CandidateDashboard() {
               <p className="text-xs sm:text-sm text-slate-500 mt-1">
                 Candidate Account • Authorized Entrance Examination Access
               </p>
+
+              {enrolledDeptName && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold">
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Enrolled: {enrolledDeptName}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-medium">
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Universal Common + Specialized Papers</span>
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
@@ -104,6 +138,11 @@ export default async function CandidateDashboard() {
                 <div className="text-xs font-bold text-emerald-700 flex items-center gap-1 justify-end">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Verified Credentials
                 </div>
+                {enrolledDeptName && (
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Department Validated
+                  </div>
+                )}
               </div>
             </div>
           </div>
