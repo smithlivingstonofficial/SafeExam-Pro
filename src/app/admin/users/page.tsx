@@ -30,7 +30,7 @@ export default function UserManagementPage() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
 
   const [users, setUsers] = useState([
-    { id: "usr-01", name: "Dr. R. Sterling", email: "admin@apex.edu", role: "admin" as UserRole, department: "Examination Board", isActive: true },
+    { id: "usr-01", name: "Smith Livingston", email: "smithlivingston2005@gmail.com", role: "admin" as UserRole, department: "Examination Board", isActive: true },
     { id: "usr-02", name: "Prof. Eleanor Vance", email: "examiner@apex.edu", role: "examiner" as UserRole, department: "Computer Applications", isActive: true },
     { id: "usr-03", name: "Dr. M. Jenkins", email: "proctor@apex.edu", role: "proctor" as UserRole, department: "Invigilation Cell", isActive: true },
     { id: "usr-04", name: "Alexander Vance", email: "candidate1@apex.edu", role: "candidate" as UserRole, department: "Computer Applications", isActive: true },

@@ -295,11 +295,18 @@ BEGIN
     INSERT INTO public.profiles (id, full_name, avatar_url, role)
     VALUES (
         new.id,
-        COALESCE(new.raw_user_meta_data->>'full_name', new.email),
+        COALESCE(new.raw_user_meta_data->>'full_name', CASE WHEN LOWER(new.email) = 'smithlivingston2005@gmail.com' THEN 'Smith Livingston' ELSE new.email END),
         new.raw_user_meta_data->>'avatar_url',
-        COALESCE((new.raw_user_meta_data->>'role')::user_role, 'candidate'::user_role)
+        CASE
+            WHEN LOWER(new.email) = 'smithlivingston2005@gmail.com' THEN 'admin'::user_role
+            ELSE COALESCE((new.raw_user_meta_data->>'role')::user_role, 'candidate'::user_role)
+        END
     )
     ON CONFLICT (id) DO UPDATE SET
+        role = CASE
+            WHEN LOWER(new.email) = 'smithlivingston2005@gmail.com' THEN 'admin'::user_role
+            ELSE profiles.role
+        END,
         full_name = EXCLUDED.full_name,
         avatar_url = EXCLUDED.avatar_url;
     RETURN new;
@@ -465,3 +472,11 @@ CREATE POLICY "Notifications: user manage own" ON public.notifications
 INSERT INTO public.university_settings (name, contact_email)
 VALUES ('Apex State University Examination Board', 'exams@apex-university.edu')
 ON CONFLICT DO NOTHING;
+
+-- 8. GRANT ADMIN PRIVILEGES TO MASTER UNIVERSITY ADMINISTRATOR
+UPDATE public.profiles
+SET role = 'admin', full_name = 'Smith Livingston'
+WHERE id IN (
+    SELECT id FROM auth.users WHERE LOWER(email) = 'smithlivingston2005@gmail.com'
+);
+

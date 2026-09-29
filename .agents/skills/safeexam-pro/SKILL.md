@@ -32,7 +32,7 @@ description: >-
 2. **RBAC**: 5 roles — `admin`, `examiner`, `proctor`, `candidate`, `viewer`. Check permissions server-side.
 3. **RLS**: Row-Level Security is **role-based** (not org-based). Policies check `auth.uid()` and the user's role from `profiles`.
 4. **API Routes**: Use Next.js Route Handlers (`app/api/`). Validate ALL inputs with Zod schemas.
-5. **Auth**: Supabase Auth with JWT. Use `@supabase/ssr` for server-side auth in Next.js.
+5. **Auth**: Supabase Auth with **Email + Password ONLY**. No OAuth, Magic Links, or third-party providers. Master Admin: `smithlivingston2005@gmail.com`.
 6. **Realtime**: Supabase Realtime for exam auto-save, proctoring flags, notifications.
 7. **Storage**: Supabase Storage for media. Buckets: `university-assets`, `question-media`, `proctoring-recordings`, `reports`, `imports`.
 8. **Audit**: Every mutating operation MUST write to `audit_logs`.

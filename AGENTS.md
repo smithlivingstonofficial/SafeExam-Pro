@@ -32,6 +32,7 @@ This is **SafeExam Pro**, a secure exam platform for a **single university**. Th
 7. **TypeScript**: Strict mode. No `any` types. All Supabase queries must use generated types.
 8. **Server Components**: Default to Server Components. Use `"use client"` only when React hooks or browser APIs are needed.
 9. **Security**: Never expose `SUPABASE_SERVICE_ROLE_KEY` to the client. Use RLS for data access control.
+10. **Auth Method**: Email and Password authentication ONLY. No OAuth, Magic Links, or third-party identity providers.
 
 ## Code Style
 - Files and folders: `kebab-case`

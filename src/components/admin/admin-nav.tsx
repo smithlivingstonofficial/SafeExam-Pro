@@ -100,10 +100,10 @@ export function AdminSidebar() {
       <div className="p-4 border-t border-slate-200 bg-slate-50/50">
         <div className="mb-3 px-1">
           <div className="text-xs font-bold text-slate-900 truncate">
-            Dr. R. Sterling
+            Smith Livingston
           </div>
           <div className="text-[11px] text-slate-500 truncate">
-            Controller of Examinations
+            smithlivingston2005@gmail.com
           </div>
         </div>
         <form action={logoutAction}>

@@ -266,10 +266,10 @@ export default function LoginPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleQuickDemo("admin", "admin@apex.edu")}
+                  onClick={() => handleQuickDemo("admin", "smithlivingston2005@gmail.com")}
                   className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-center"
                 >
-                  Admin Demo
+                  Admin (Smith Livingston)
                 </button>
               </div>
             </div>

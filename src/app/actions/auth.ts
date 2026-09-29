@@ -73,7 +73,18 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
     .maybeSingle();
 
   const profile = data as { role?: UserRole } | null;
-  const userRole: UserRole = profile?.role || role || "candidate";
+  const isMasterAdmin = email.toLowerCase() === "smithlivingston2005@gmail.com";
+  let userRole: UserRole = isMasterAdmin ? "admin" : (profile?.role || role || "candidate");
+
+  // Ensure master admin has admin role in database
+  if (isMasterAdmin && profile?.role !== "admin") {
+    const adminClient = (await import("@/lib/supabase/server")).createAdminClient();
+    await adminClient
+      .from("profiles")
+      .update({ role: "admin", full_name: "Smith Livingston" })
+      .eq("id", authData.user.id);
+    userRole = "admin";
+  }
 
   // 5. Audit Log
   await logAuditEvent({
@@ -81,7 +92,7 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
     action: "USER_LOGIN_SUCCESS",
     entityType: "profiles",
     entityId: authData.user.id,
-    details: { role: userRole },
+    details: { role: userRole, isMasterAdmin },
   });
 
   // 6. Role-Based Navigation
@@ -133,7 +144,7 @@ export async function registerAction(formData: FormData): Promise<AuthResponse> 
     options: {
       data: {
         full_name: fullName,
-        role: "candidate",
+        role: email.toLowerCase() === "smithlivingston2005@gmail.com" ? "admin" : "candidate",
         department,
         phone,
       },
@@ -142,21 +153,23 @@ export async function registerAction(formData: FormData): Promise<AuthResponse> 
 
   if (error || !data.user) {
     return {
-      error: error?.message || "Failed to create candidate account",
+      error: error?.message || "Failed to create account",
       code: "REGISTRATION_FAILED",
     };
   }
 
+  const isMaster = email.toLowerCase() === "smithlivingston2005@gmail.com";
+
   // 4. Audit Log
   await logAuditEvent({
     userId: data.user.id,
-    action: "CANDIDATE_REGISTERED",
+    action: isMaster ? "MASTER_ADMIN_REGISTERED" : "CANDIDATE_REGISTERED",
     entityType: "profiles",
     entityId: data.user.id,
-    details: { fullName, email, department },
+    details: { fullName, email, department, role: isMaster ? "admin" : "candidate" },
   });
 
-  redirect("/candidate");
+  redirect(isMaster ? "/admin" : "/candidate");
 }
 
 export async function logoutAction() {
