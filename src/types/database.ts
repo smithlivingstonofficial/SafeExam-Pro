@@ -103,18 +103,27 @@ export interface Database {
         Row: {
           id: string;
           name: string;
+          code: string | null;
           head_name: string | null;
+          contact_email: string | null;
+          description: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           name: string;
+          code?: string | null;
           head_name?: string | null;
+          contact_email?: string | null;
+          description?: string | null;
           created_at?: string;
         };
         Update: {
           name?: string;
+          code?: string | null;
           head_name?: string | null;
+          contact_email?: string | null;
+          description?: string | null;
         };
         Relationships: [];
       };

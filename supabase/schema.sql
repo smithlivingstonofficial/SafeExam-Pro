@@ -89,7 +89,10 @@ CREATE TABLE IF NOT EXISTS public.university_settings (
 CREATE TABLE IF NOT EXISTS public.departments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
+    code TEXT UNIQUE,
     head_name TEXT,
+    contact_email TEXT,
+    description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 

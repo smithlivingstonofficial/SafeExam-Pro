@@ -17,6 +17,22 @@ export default async function UserManagementPage() {
     (authUsers?.users || []).map((u: { id: string; email?: string }) => [u.id, u.email || ""])
   );
 
+  // Fetch academic departments from Supabase
+  const { data: deptData } = await adminClient
+    .from("departments")
+    .select("id, name, code")
+    .order("name", { ascending: true });
+
+  const availableDepartments = ((deptData || []) as Array<{
+    id: string;
+    name: string;
+    code: string | null;
+  }>).map((d) => ({
+    id: d.id,
+    name: d.name,
+    code: d.code,
+  }));
+
   const initialUsers: UserItem[] = ((profiles || []) as Array<{
     id: string;
     full_name: string;
@@ -32,5 +48,10 @@ export default async function UserManagementPage() {
     isActive: p.is_active,
   }));
 
-  return <UserManagementClient initialUsers={initialUsers} />;
+  return (
+    <UserManagementClient
+      initialUsers={initialUsers}
+      availableDepartments={availableDepartments}
+    />
+  );
 }

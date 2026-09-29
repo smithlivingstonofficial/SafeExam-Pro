@@ -13,8 +13,15 @@ export const universitySettingsSchema = z.object({
 });
 
 export const departmentSchema = z.object({
-  name: z.string().min(2, "Department name must be at least 2 characters long"),
-  headName: z.string().optional(),
+  name: z.string().min(2, "Department name must be at least 2 characters long").max(120),
+  code: z.string().min(2, "Discipline code must be at least 2 characters").max(15).optional().nullable().or(z.literal("")),
+  headName: z.string().max(100).optional().nullable().or(z.literal("")),
+  contactEmail: z.string().email("Valid departmental email required").optional().nullable().or(z.literal("")),
+  description: z.string().max(1000).optional().nullable().or(z.literal("")),
+});
+
+export const updateDepartmentSchema = departmentSchema.extend({
+  id: z.string().uuid("Invalid department identifier"),
 });
 
 export const userManagementSchema = z.object({

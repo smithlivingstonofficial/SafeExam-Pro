@@ -30,11 +30,18 @@ export interface UserItem {
   isActive: boolean;
 }
 
-interface Props {
-  initialUsers: UserItem[];
+export interface DepartmentOption {
+  id: string;
+  name: string;
+  code?: string | null;
 }
 
-export function UserManagementClient({ initialUsers }: Props) {
+interface Props {
+  initialUsers: UserItem[];
+  availableDepartments?: DepartmentOption[];
+}
+
+export function UserManagementClient({ initialUsers, availableDepartments = [] }: Props) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -368,12 +375,27 @@ export function UserManagementClient({ initialUsers }: Props) {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Department
                   </label>
-                  <input
-                    type="text"
-                    name="department"
-                    placeholder="e.g. Computer Science"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
-                  />
+                  {availableDepartments && availableDepartments.length > 0 ? (
+                    <select
+                      name="department"
+                      defaultValue=""
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                    >
+                      <option value="">General / None Assigned</option>
+                      {availableDepartments.map((d) => (
+                        <option key={d.id} value={d.name}>
+                          {d.name} {d.code ? `(${d.code})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      name="department"
+                      placeholder="e.g. Computer Science"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                    />
+                  )}
                 </div>
               </div>
 
