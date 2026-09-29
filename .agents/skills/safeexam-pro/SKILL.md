@@ -16,6 +16,7 @@ description: >-
 |---|---|
 | **Product** | SafeExam Pro — Single-university secure exam platform |
 | **Scope** | Single university deployment (NO multi-tenancy) |
+| **Theme** | **Light Theme Only** (crisp whites, slate neutrals, royal blue/indigo accents) |
 | **Tech Stack** | Next.js 14+ (App Router), Supabase, Vercel, Cloudflare |
 | **UI** | shadcn/ui + Radix UI + Tailwind CSS v4 |
 | **State** | Zustand (client), React Server Components (server) |

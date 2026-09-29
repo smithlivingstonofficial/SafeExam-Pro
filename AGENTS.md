@@ -24,13 +24,14 @@ This is **SafeExam Pro**, a secure exam platform for a **single university**. Th
 
 ## Mandatory Patterns
 1. **Single-university**: There is NO multi-tenancy. No `org_id`. No tenant isolation. One instance = one university.
-2. **RBAC**: 5 roles — `admin`, `examiner`, `proctor`, `candidate`, `viewer`. RLS policies are role-based.
-3. **Audit Logging**: Every mutating operation MUST write to `audit_logs`.
-4. **Input Validation**: Every API route handler MUST validate input with Zod before processing.
-5. **Error Handling**: Use consistent error response format: `{ error: string, code: string, details?: any }`.
-6. **TypeScript**: Strict mode. No `any` types. All Supabase queries must use generated types.
-7. **Server Components**: Default to Server Components. Use `"use client"` only when React hooks or browser APIs are needed.
-8. **Security**: Never expose `SUPABASE_SERVICE_ROLE_KEY` to the client. Use RLS for data access control.
+2. **Light Theme Only**: Always keep the site in an elegant, high-contrast, clean modern light theme (crisp white/slate surfaces, slate-900 text, refined royal blue/indigo accents). Do NOT use dark theme.
+3. **RBAC**: 5 roles — `admin`, `examiner`, `proctor`, `candidate`, `viewer`. RLS policies are role-based.
+4. **Audit Logging**: Every mutating operation MUST write to `audit_logs`.
+5. **Input Validation**: Every API route handler MUST validate input with Zod before processing.
+6. **Error Handling**: Use consistent error response format: `{ error: string, code: string, details?: any }`.
+7. **TypeScript**: Strict mode. No `any` types. All Supabase queries must use generated types.
+8. **Server Components**: Default to Server Components. Use `"use client"` only when React hooks or browser APIs are needed.
+9. **Security**: Never expose `SUPABASE_SERVICE_ROLE_KEY` to the client. Use RLS for data access control.
 
 ## Code Style
 - Files and folders: `kebab-case`

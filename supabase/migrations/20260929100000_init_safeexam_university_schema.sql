@@ -1,7 +1,8 @@
 -- ============================================================================
--- SafeExam Pro — Complete University Examination Database Schema
--- Single-University Architecture with Role-Based Access Control (RBAC)
--- Ready for direct execution in Supabase SQL Editor
+-- Migration: 20260929100000_init_safeexam_university_schema.sql
+-- Description: Core Schema for SafeExam Pro (Single-University Edition)
+-- Roles: admin, examiner, proctor, candidate, viewer
+-- Features: Questions, Exams, Schedules, Realtime Responses, Results, Audit, Proctoring
 -- ============================================================================
 
 -- 1. EXTENSIONS

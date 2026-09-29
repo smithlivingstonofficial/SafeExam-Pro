@@ -1,16 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  --background: #090d16;
-  --foreground: #f1f5f9;
-  --card: #0f172a;
-  --card-border: rgba(148, 163, 184, 0.12);
-  --primary: #3b82f6;
-  --primary-glow: rgba(59, 130, 246, 0.25);
-  --accent: #6366f1;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --destructive: #ef4444;
+  /* Enforced Light Theme Palette for Academic Examination Platform */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-border: #e2e8f0;
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --primary-glow: rgba(37, 99, 235, 0.15);
+  --accent: #4338ca;
+  --accent-light: #eef2ff;
+  --muted: #64748b;
+  --muted-bg: #f1f5f9;
+  --success: #059669;
+  --success-bg: #ecfdf5;
+  --warning: #d97706;
+  --warning-bg: #fffbeb;
+  --destructive: #dc2626;
+  --destructive-bg: #fef2f2;
 }
 
 @theme inline {
@@ -21,27 +29,32 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Glassmorphism helpers */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+/* Crisp Light Theme Card & Glass Effects */
+.light-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
 }
 
-.glass-panel-hover {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+.light-card-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.glass-panel-hover:hover {
-  border-color: rgba(99, 102, 241, 0.35);
-  box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.2);
+.light-card-hover:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 25px -4px rgba(30, 41, 59, 0.08), 0 4px 10px -3px rgba(30, 41, 59, 0.04);
   transform: translateY(-2px);
 }
 
+.subtle-badge {
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
