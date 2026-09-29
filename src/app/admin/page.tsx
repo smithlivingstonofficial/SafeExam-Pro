@@ -97,16 +97,21 @@ export default async function AdminOverviewPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <Link
+          href="/admin/students"
+          className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-purple-300 shadow-xs transition-all group block"
+        >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase font-extrabold text-slate-500">Registered Candidates</span>
-            <div className="p-2 rounded-lg bg-blue-50 text-blue-700">
+            <span className="text-xs uppercase font-extrabold text-slate-500 group-hover:text-purple-700 transition-colors">
+              Registered Candidates
+            </span>
+            <div className="p-2 rounded-lg bg-blue-50 text-blue-700 group-hover:bg-purple-50 group-hover:text-purple-700 transition-colors">
               <Users className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-extrabold text-slate-900">{candidateCount || 0}</div>
           <div className="text-xs text-slate-500 mt-1 font-medium">{staffCount || 0} Faculty / Staff</div>
-        </div>
+        </Link>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-2">
@@ -189,6 +194,12 @@ export default async function AdminOverviewPage() {
             </div>
 
             <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+              <Link
+                href="/admin/students"
+                className="w-full py-2.5 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-center border border-purple-200 transition-colors"
+              >
+                Students & Exam Allocations →
+              </Link>
               <Link
                 href="/admin/departments"
                 className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-center border border-slate-200 transition-colors"

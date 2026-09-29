@@ -405,6 +405,13 @@ export function DepartmentDetailClient({
                 className="w-full text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
               />
             </div>
+            <Link
+              href="/admin/students"
+              className="px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold transition-all shrink-0 inline-flex items-center gap-1.5"
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>Allocate to Exam Session</span>
+            </Link>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">

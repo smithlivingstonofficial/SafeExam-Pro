@@ -13,12 +13,14 @@ import {
   LogOut,
   ExternalLink,
   Award,
+  GraduationCap,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Executive Overview", icon: LayoutDashboard },
   { href: "/admin/settings", label: "University Settings", icon: Settings },
   { href: "/admin/departments", label: "Academic Departments", icon: Building2 },
+  { href: "/admin/students", label: "Students & Enrollments", icon: GraduationCap },
   { href: "/admin/users", label: "User & Faculty Roster", icon: Users },
   { href: "/admin/audit", label: "Audit & Compliance Logs", icon: History },
 ];
