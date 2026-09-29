@@ -7,7 +7,7 @@ interface AuditLogParams {
   action: string;
   entityType: string;
   entityId?: string | null;
-  details?: Record<string, Json>;
+  details?: Record<string, unknown>;
 }
 
 export async function logAuditEvent({
@@ -28,12 +28,15 @@ export async function logAuditEvent({
     // Use admin client to reliably write to audit_logs without RLS barriers
     const supabase = createAdminClient();
 
+    // Sanitize any undefined fields to valid JSON
+    const sanitizedDetails = JSON.parse(JSON.stringify(details)) as Json;
+
     await supabase.from("audit_logs").insert({
       user_id: userId || null,
       action,
       entity_type: entityType,
       entity_id: entityId || null,
-      details: details as unknown as Json,
+      details: sanitizedDetails,
       ip_address: ipAddress,
       user_agent: userAgent,
     });
