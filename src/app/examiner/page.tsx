@@ -14,7 +14,6 @@ import {
   Building2,
   Calendar,
   ChevronRight,
-  Sparkles,
 } from "lucide-react";
 
 export default async function ExaminerDashboardPage() {
@@ -85,55 +84,7 @@ export default async function ExaminerDashboardPage() {
   const totalAssignments = assignments?.length || 0;
 
   return (
-    <div className="space-y-6 max-w-full">
-      {/* Executive Command Header Card */}
-      <div className="bg-gradient-to-r from-white via-indigo-50/25 to-purple-50/20 border border-slate-200/90 rounded-2xl p-4 sm:p-4.5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-700 via-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-xs shadow-indigo-600/25 ring-2 ring-indigo-50 shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-md">
-                Faculty Desk
-              </span>
-              <span className="text-slate-300 font-light">•</span>
-              <span className="text-[11px] font-medium text-slate-500 truncate">
-                Session 2026-27 Entrance Assessment
-              </span>
-            </div>
-            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight mt-0.5">
-              Examination Control Center
-            </h1>
-          </div>
-        </div>
-
-        {/* Action Button Group */}
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href="/examiner/exams"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-xs font-bold shadow-xs shadow-indigo-600/30 ring-1 ring-indigo-500/20 transition-all cursor-pointer group"
-          >
-            <PlusCircle className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform duration-300" />
-            <span>New Blueprint</span>
-          </Link>
-          <Link
-            href="/examiner/schedules"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-          >
-            <CalendarCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Schedule</span>
-          </Link>
-          <Link
-            href="/examiner/banks"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 text-slate-700 text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-purple-600" />
-            <span>Questions</span>
-          </Link>
-        </div>
-      </div>
-
+    <div className="space-y-4 max-w-full">
       {/* 4 Stats Cards with Light Matching Color Outlines & Soft Gradients */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Card 1: Question Pool (Indigo) */}
