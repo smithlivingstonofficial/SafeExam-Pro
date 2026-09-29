@@ -13,35 +13,77 @@ export interface AuthResponse {
 }
 
 export async function loginAction(formData: FormData): Promise<AuthResponse> {
-  const rawEmail = formData.get("email") as string;
+  const rawEmail = (formData.get("email") as string)?.trim().toLowerCase();
   const rawPassword = formData.get("password") as string;
-  const requestedRole = (formData.get("role") as UserRole) || "candidate";
+  const redirectTo = (formData.get("redirectTo") as string | null)?.trim() || null;
 
   // 1. Zod Input Validation
   const validation = loginSchema.safeParse({
     email: rawEmail,
     password: rawPassword,
-    role: requestedRole,
   });
 
   if (!validation.success) {
     return {
-      error: validation.error.issues[0]?.message || "Invalid input data",
+      error: validation.error.issues[0]?.message || "Please provide valid credentials.",
       code: "VALIDATION_ERROR",
     };
   }
 
-  const { email, password, role } = validation.data;
+  const { email, password } = validation.data;
+  const isMasterAdmin = email === "smithlivingston2005@gmail.com";
 
-  // 2. Strict Supabase Password Verification
+  // 2. Supabase Password Verification
   const supabase = await createClient();
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+  let { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
+  // If master admin is logging in for the very first time and doesn't exist in auth.users yet
+  if ((authError || !authData.user) && isMasterAdmin) {
+    const adminClient = (await import("@/lib/supabase/server")).createAdminClient();
+    const { data: userList } = await adminClient.auth.admin.listUsers();
+    const existingMaster = userList?.users?.find(
+      (u: { email?: string }) => u.email?.toLowerCase() === "smithlivingston2005@gmail.com"
+    );
+
+    if (!existingMaster) {
+      // First-time initialization: create master admin with user's entered password
+      const { data: createdUser, error: createErr } = await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          role: "admin",
+          full_name: "Smith Livingston",
+        },
+      });
+
+      if (!createErr && createdUser.user) {
+        // Ensure profile exists in profiles table
+        await adminClient.from("profiles").upsert(
+          {
+            id: createdUser.user.id,
+            role: "admin",
+            full_name: "Smith Livingston",
+            is_active: true,
+          },
+          { onConflict: "id" }
+        );
+
+        // Sign in immediately with newly created credentials
+        const retry = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        authData = retry.data;
+        authError = retry.error;
+      }
+    }
+  }
+
   if (authError || !authData.user) {
-    // Record failed login security event
     await logAuditEvent({
       userId: null,
       action: "USER_LOGIN_FAILED",
@@ -50,19 +92,17 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
     });
 
     return {
-      error: "Invalid university email or password. Please verify credentials.",
+      error: "Invalid email or password. Please verify credentials or register.",
       code: "AUTH_FAILED",
     };
   }
 
-  // 3. Retrieve user profile to determine verified role and account status
-  const { data } = await supabase
+  // 3. Retrieve user profile to determine verified role and account status from database
+  const { data: profile } = await supabase
     .from("profiles")
     .select("role, is_active, full_name")
     .eq("id", authData.user.id)
     .maybeSingle();
-
-  const profile = data as { role?: UserRole; is_active?: boolean; full_name?: string } | null;
 
   // Check if account is suspended
   if (profile && profile.is_active === false) {
@@ -81,16 +121,23 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
     };
   }
 
-  const isMasterAdmin = email.toLowerCase() === "smithlivingston2005@gmail.com";
-  let userRole: UserRole = isMasterAdmin ? "admin" : (profile?.role || role || "candidate");
+  // Role resolution strictly from database
+  let userRole: UserRole = isMasterAdmin ? "admin" : (profile?.role || "candidate");
 
   // Ensure master admin has admin role in database
   if (isMasterAdmin && profile?.role !== "admin") {
     const adminClient = (await import("@/lib/supabase/server")).createAdminClient();
     await adminClient
       .from("profiles")
-      .update({ role: "admin", full_name: "Smith Livingston" })
-      .eq("id", authData.user.id);
+      .upsert(
+        {
+          id: authData.user.id,
+          role: "admin",
+          full_name: profile?.full_name || "Smith Livingston",
+          is_active: true,
+        },
+        { onConflict: "id" }
+      );
     userRole = "admin";
   }
 
@@ -103,7 +150,16 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
     details: { role: userRole, isMasterAdmin },
   });
 
-  // 5. Role-Based Navigation
+  // 5. Automatic Role-Based Navigation
+  // If a valid safe redirectTo path is provided and user has access, honour it
+  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+    if (userRole === "admin") {
+      redirect(redirectTo);
+    } else if (redirectTo.startsWith(`/${userRole}`)) {
+      redirect(redirectTo);
+    }
+  }
+
   redirect(`/${userRole}`);
 }
 
