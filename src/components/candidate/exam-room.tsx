@@ -61,6 +61,8 @@ interface ExamRoomProps {
   scheduleEndAt?: string | null;
   sections: ExamSectionItem[];
   initialResponses?: InitialResponseItem[];
+  isDesktopClient?: boolean;
+  hardwareId?: string;
 }
 
 export function ExamRoom({
@@ -75,9 +77,14 @@ export function ExamRoom({
   scheduleEndAt,
   sections,
   initialResponses = [],
+  isDesktopClient = false,
+  hardwareId,
 }: ExamRoomProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // Detect native SafeExam Pro Desktop Client
+  const isNativeClient = isDesktopClient || (typeof window !== "undefined" && !!(window as any).safeExamDesktop);
   const [latestServerNow, setLatestServerNow] = useState<string | null>(serverNow || null);
   const [isAutoSubmitting, setIsAutoSubmitting] = useState(false);
 
@@ -770,6 +777,17 @@ export function ExamRoom({
                 </div>
               )}
             </div>
+
+            {/* 4. Desktop Client Lockdown Pill */}
+            {isNativeClient && (
+              <div
+                className="hidden xl:flex items-center gap-1.5 h-9 px-3 rounded-xl bg-indigo-50/90 border border-indigo-200/90 shadow-2xs whitespace-nowrap text-xs text-indigo-950 font-bold"
+                title={hardwareId ? `SafeExam Hardware Attestation: ${hardwareId}` : "SafeExam Pro Desktop Lockdown Client Active"}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-700 shrink-0" />
+                <span>Desktop Lockdown Sealed</span>
+              </div>
+            )}
 
             {!isOnline && (
               <div className="h-9 px-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold animate-pulse flex items-center gap-1.5">

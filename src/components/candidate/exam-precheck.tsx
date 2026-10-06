@@ -37,6 +37,8 @@ interface ExamPrecheckProps {
   candidateName: string;
   universityName: string;
   totalQuestions: number;
+  isDesktopClient?: boolean;
+  hardwareId?: string;
 }
 
 interface SecurityEnvironment {
@@ -69,12 +71,17 @@ export function ExamPrecheck({
   candidateName,
   universityName,
   totalQuestions,
+  isDesktopClient = false,
+  hardwareId,
 }: ExamPrecheckProps) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animFrameRef = useRef<number | null>(null);
+
+  // Check if running inside native SafeExam Pro Desktop Client
+  const isNativeClient = isDesktopClient || (typeof window !== "undefined" && !!(window as any).safeExamDesktop);
 
   // Hardware states
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -511,6 +518,16 @@ export function ExamPrecheck({
       isBlocking: true,
       category: "Lockdown",
     },
+    {
+      id: "desktop-client",
+      title: "SafeExam Pro Desktop Lockdown Client",
+      description: isNativeClient
+        ? `Hardware Attested: Native Enclosure Active ${hardwareId ? `(HWID: ${hardwareId.slice(0, 10)}...)` : ""}`
+        : "Browser Mode: Running in web browser (Desktop client recommended for highest security)",
+      passed: true,
+      isBlocking: false,
+      category: "Enclosure",
+    },
   ];
 
   const totalChecks = securityChecks.length;
@@ -613,6 +630,48 @@ export function ExamPrecheck({
           <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
             <span>{generalError}</span>
+          </div>
+        )}
+
+        {/* Desktop Client Status Banner */}
+        {isNativeClient ? (
+          <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between gap-4 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-emerald-950 block">SafeExam Pro Desktop Lockdown Client Active</span>
+                <span className="text-emerald-800 text-[11px]">
+                  Hardware cryptographically attested • Auxiliary display blackout engaged • Background process inhibitor active
+                  {hardwareId && ` • ID: ${hardwareId.slice(0, 16)}...`}
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-md bg-emerald-600 text-white shrink-0">
+              Hardware Sealed
+            </span>
+          </div>
+        ) : (
+          <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-indigo-100 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5">
+                <Laptop className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-slate-900 block">Optional: SafeExam Pro Desktop Client</span>
+                <span className="text-slate-600 text-[11px]">
+                  For institutional hardware lockdown (Alt-Tab prevention, secondary monitor blocking, and anti-recording shield), launch this session in the desktop client.
+                </span>
+              </div>
+            </div>
+            <a
+              href={`safeexam://exam/${assignmentId}`}
+              className="px-3.5 py-2 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs whitespace-nowrap inline-flex items-center gap-1.5 shadow-2xs self-start sm:self-auto cursor-pointer transition-colors"
+            >
+              <span>Launch Desktop Client</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </a>
           </div>
         )}
 

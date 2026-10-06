@@ -96,13 +96,24 @@ export function ExamCompleted({
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          <Link
-            href="/candidate"
-            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs shadow-xs transition-colors flex items-center justify-center gap-2"
-          >
-            <span>Return to Dashboard</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          {typeof window !== "undefined" && (window as any).safeExamDesktop ? (
+            <button
+              type="button"
+              onClick={() => (window as any).safeExamDesktop?.exitApp()}
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-slate-900 hover:bg-black text-white font-extrabold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Exit SafeExam Client</span>
+            </button>
+          ) : (
+            <Link
+              href="/candidate"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs shadow-xs transition-colors flex items-center justify-center gap-2"
+            >
+              <span>Return to Dashboard</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
 
           <form action={logoutAction} className="w-full sm:w-auto">
             <button

@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth/rbac";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -12,6 +13,7 @@ import {
   ExamQuestionItem,
 } from "@/lib/exam/sample-exam-data";
 import { submitExamAction } from "@/app/actions/exam";
+import { verifyClientAttestation } from "@/lib/security/client-attestation";
 import { ShieldAlert, ArrowLeft, Clock } from "lucide-react";
 
 interface PageProps {
@@ -25,6 +27,13 @@ export default async function CandidateExamPage({ params }: PageProps) {
   const user = await requireRole(["candidate", "admin"]);
   const adminSupabase = createAdminClient();
   const settings = await getUniversitySettings();
+
+  // Validate Native Desktop Client Attestation
+  const headerList = await headers();
+  const clientToken = headerList.get("x-safeexam-client-token");
+  const attestationResult = verifyClientAttestation(clientToken);
+  const isDesktopClient = attestationResult.isValid;
+  const hardwareId = attestationResult.hardwareId;
 
   // 1. Fetch assignment and verify candidate access
   const { data: assignment, error: assignErr } = await adminSupabase
@@ -403,6 +412,8 @@ export default async function CandidateExamPage({ params }: PageProps) {
         candidateName={candidateName}
         universityName={settings.name}
         totalQuestions={totalQuestions}
+        isDesktopClient={isDesktopClient}
+        hardwareId={hardwareId}
       />
     );
   }
@@ -421,6 +432,8 @@ export default async function CandidateExamPage({ params }: PageProps) {
       scheduleEndAt={schedule?.end_at || null}
       sections={finalSections}
       initialResponses={initialResponses}
+      isDesktopClient={isDesktopClient}
+      hardwareId={hardwareId}
     />
   );
 }

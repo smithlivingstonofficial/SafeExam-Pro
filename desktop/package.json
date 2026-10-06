@@ -1,0 +1,25 @@
+{
+  "name": "safeexam-pro-desktop",
+  "version": "1.0.0",
+  "description": "SafeExam Pro — Secure Lockdown Desktop Examination Client",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsc && electron .",
+    "dev": "tsc && electron .",
+    "dist": "tsc && electron-builder"
+  },
+  "keywords": [
+    "safeexam",
+    "lockdown-browser",
+    "proctoring",
+    "secure-exam"
+  ],
+  "author": "SafeExam Pro Security Team",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.7.3"
+  }
+}

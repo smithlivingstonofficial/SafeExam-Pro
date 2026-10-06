@@ -21,6 +21,9 @@ import {
   Globe,
   Phone,
   Mail,
+  Laptop,
+  Monitor,
+  Sparkles,
 } from "lucide-react";
 
 export default async function CandidateDashboard() {
@@ -364,27 +367,39 @@ export default async function CandidateDashboard() {
                                 <span>Opens at {startDate ? startDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Start Time"}</span>
                               </span>
                             ) : (
-                              <Link
-                                href={`/candidate/exam/${assignment.id}`}
-                                className={`px-5 py-2.5 rounded-xl text-white font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
-                                  isResultPublished
-                                    ? "bg-emerald-700 hover:bg-emerald-800"
-                                    : isCompleted || isSessionTimeExpired
-                                    ? "bg-slate-700 hover:bg-slate-800"
-                                    : "bg-indigo-700 hover:bg-indigo-800"
-                                }`}
-                              >
-                                <Play className="w-3.5 h-3.5 fill-current" />
-                                <span>
-                                  {isResultPublished
-                                    ? "View Statement of Marks"
-                                    : isCompleted || isSessionTimeExpired
-                                    ? "View Submission Docket"
-                                    : assignment.status === "started"
-                                    ? "Resume Examination"
-                                    : "Launch Exam Environment"}
-                                </span>
-                              </Link>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <a
+                                  href={`safeexam://exam/${assignment.id}`}
+                                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                                  title="Launch in SafeExam Pro Desktop Lockdown Client"
+                                >
+                                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                                  <span>SafeExam Browser</span>
+                                </a>
+                                <Link
+                                  href={`/candidate/exam/${assignment.id}`}
+                                  className={`px-4 py-2.5 rounded-xl text-white font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer ${
+                                    isResultPublished
+                                      ? "bg-emerald-700 hover:bg-emerald-800"
+                                      : isCompleted || isSessionTimeExpired
+                                      ? "bg-slate-700 hover:bg-slate-800"
+                                      : assignment.status === "started"
+                                      ? "bg-blue-700 hover:bg-blue-800"
+                                      : "bg-indigo-700 hover:bg-indigo-800"
+                                  }`}
+                                >
+                                  <Play className="w-3.5 h-3.5 fill-current" />
+                                  <span>
+                                    {isResultPublished
+                                      ? "View Statement of Marks"
+                                      : isCompleted || isSessionTimeExpired
+                                      ? "View Submission Docket"
+                                      : assignment.status === "started"
+                                      ? "Resume in Browser"
+                                      : "Web Browser"}
+                                  </span>
+                                </Link>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -430,6 +445,61 @@ export default async function CandidateDashboard() {
 
           {/* Right Column: Pre-Exam Security & Guidelines */}
           <div className="space-y-6">
+            {/* SafeExam Desktop Lockdown Client Card (Institutional Light Theme) */}
+            <div className="bg-white border-2 border-indigo-100 rounded-2xl p-5 shadow-xs space-y-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/60 rounded-full blur-2xl -z-0 pointer-events-none" />
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shadow-2xs">
+                    <Laptop className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900">SafeExam Desktop Client</h3>
+                    <p className="text-[10px] text-slate-500 font-medium">Institutional Lockdown Software v1.0.0</p>
+                  </div>
+                </div>
+                <span className="text-[10px] uppercase font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700">
+                  Secure Client
+                </span>
+              </div>
+
+              <p className="relative z-10 text-xs text-slate-600 leading-relaxed">
+                Dedicated Windows client providing institutional kiosk containment. Inhibits multi-monitors, screen-capture utilities, and background applications during examinations.
+              </p>
+
+              <div className="relative z-10 grid grid-cols-2 gap-2 text-[11px] text-slate-700 pt-1">
+                <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                  <Monitor className="w-3.5 h-3.5 text-indigo-700 shrink-0" />
+                  <span className="font-medium">Display Guard</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                  <Lock className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                  <span className="font-medium">Kiosk Locked</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                  <span className="font-medium">HWID Sealed</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                  <span className="font-medium">Process Guard</span>
+                </div>
+              </div>
+
+              <div className="relative z-10 pt-1 flex flex-col gap-2">
+                <a
+                  href="safeexam://candidate"
+                  className="w-full text-center py-2.5 px-3 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Launch SafeExam Desktop</span>
+                </a>
+                <div className="text-[10px] text-slate-400 text-center">
+                  Deep link protocol <code className="text-indigo-700 font-mono bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">safeexam://</code>
+                </div>
+              </div>
+            </div>
+
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-indigo-700" />
               <span>Candidate Checklist</span>

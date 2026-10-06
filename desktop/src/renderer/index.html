@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeExam Pro — Lockdown Desktop Client</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="kiosk-badge">
+    <div class="kiosk-dot"></div>
+    <span>Lockdown Enclosure Active</span>
+  </div>
+
+  <div class="diagnostic-card">
+    <div class="header-row">
+      <div class="app-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h1>SafeExam Pro Secure Browser</h1>
+        <p>Institutional Entrance Assessment Delivery • Version 1.0.0</p>
+      </div>
+    </div>
+
+    <!-- Alert Box for Process Infractions -->
+    <div id="alertBox" class="alert-box">
+      <div class="alert-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>Prohibited Application Running</span>
+      </div>
+      <div id="alertDesc" class="alert-desc">
+        Please terminate the detected application immediately to proceed with your examination.
+      </div>
+    </div>
+
+    <!-- Diagnostic Checklist -->
+    <div class="checklist">
+      <div class="check-item">
+        <div class="check-label">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <span>Single Display Mode</span>
+        </div>
+        <div id="displayBadge" class="status-badge status-checking">Checking...</div>
+      </div>
+
+      <div class="check-item">
+        <div class="check-label">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>
+            <rect x="9" y="9" width="6" height="6"/>
+            <line x1="9" y1="1" x2="9" y2="4"/>
+            <line x1="15" y1="1" x2="15" y2="4"/>
+          </svg>
+          <span>Process Integrity & Blacklist Scan</span>
+        </div>
+        <div id="processBadge" class="status-badge status-checking">Scanning...</div>
+      </div>
+
+      <div class="check-item">
+        <div class="check-label">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Cryptographic Client Signature</span>
+        </div>
+        <div id="attestationBadge" class="status-badge status-checking">Signing...</div>
+      </div>
+    </div>
+
+    <!-- Target Exam URL Input -->
+    <div class="form-group">
+      <label for="examUrlInput">Candidate Session URL or Path</label>
+      <input
+        type="text"
+        id="examUrlInput"
+        class="input-box"
+        placeholder="e.g. /candidate/exam/[assignmentId] or full URL"
+        value="/candidate"
+      />
+    </div>
+
+    <!-- Controls -->
+    <div class="button-row">
+      <button id="btnLaunch" class="btn-primary" disabled>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        <span>Commence Examination Session</span>
+      </button>
+      <button id="btnExit" class="btn-secondary">
+        Exit
+      </button>
+    </div>
+
+    <div class="footer-info">
+      Hardware Attestation Active • Alt-Tab & Screen Capture Inhibitors Engaged
+    </div>
+  </div>
+
+  <script>
+    const displayBadge = document.getElementById("displayBadge");
+    const processBadge = document.getElementById("processBadge");
+    const attestationBadge = document.getElementById("attestationBadge");
+    const alertBox = document.getElementById("alertBox");
+    const alertDesc = document.getElementById("alertDesc");
+    const btnLaunch = document.getElementById("btnLaunch");
+    const btnExit = document.getElementById("btnExit");
+    const examUrlInput = document.getElementById("examUrlInput");
+
+    let isDisplayOk = false;
+    let isProcessOk = false;
+
+    async function runDiagnostics() {
+      try {
+        const result = await window.safeExamDesktop.runDiagnostics();
+
+        // 1. Display Check
+        if (result.singleDisplay) {
+          isDisplayOk = true;
+          displayBadge.className = "status-badge status-pass";
+          displayBadge.textContent = "Passed (1 Display)";
+        } else {
+          isDisplayOk = false;
+          displayBadge.className = "status-badge status-fail";
+          displayBadge.textContent = `Blocked (${result.displayCount} Displays)`;
+        }
+
+        // 2. Process Scan Check
+        if (result.cleanProcesses) {
+          isProcessOk = true;
+          processBadge.className = "status-badge status-pass";
+          processBadge.textContent = "Clean";
+          alertBox.style.display = "none";
+        } else {
+          isProcessOk = false;
+          processBadge.className = "status-badge status-fail";
+          processBadge.textContent = "Infraction Detected";
+
+          const appNames = result.detectedInfractions.map(i => i.description || i.name).join(", ");
+          alertDesc.textContent = `Prohibited applications active: ${appNames}. Close these apps to continue.`;
+          alertBox.style.display = "block";
+        }
+
+        // 3. Attestation Signature
+        if (result.token) {
+          attestationBadge.className = "status-badge status-pass";
+          attestationBadge.textContent = "Attested & Sealed";
+        }
+
+        // Enable Launch button only if passed
+        btnLaunch.disabled = !(isDisplayOk && isProcessOk);
+      } catch (err) {
+        console.error("Diagnostic error:", err);
+      }
+    }
+
+    // Run diagnostics immediately and every 3 seconds
+    runDiagnostics();
+    setInterval(runDiagnostics, 3000);
+
+    // Listen to real-time security alerts from background scanner
+    window.safeExamDesktop.onSecurityAlert((infractions) => {
+      if (infractions && infractions.length > 0) {
+        isProcessOk = false;
+        processBadge.className = "status-badge status-fail";
+        processBadge.textContent = "Infraction Detected";
+        const appNames = infractions.map(i => i.description || i.name).join(", ");
+        alertDesc.textContent = `Prohibited application detected: ${appNames}. Close this application immediately.`;
+        alertBox.style.display = "block";
+        btnLaunch.disabled = true;
+      }
+    });
+
+    btnLaunch.addEventListener("click", async () => {
+      const url = examUrlInput.value.trim();
+      if (!url) return;
+
+      btnLaunch.disabled = true;
+      btnLaunch.innerHTML = "Launching Secure Session...";
+      await window.safeExamDesktop.launchExamSession(url);
+    });
+
+    btnExit.addEventListener("click", () => {
+      window.safeExamDesktop.exitApp();
+    });
+  </script>
+</body>
+</html>
