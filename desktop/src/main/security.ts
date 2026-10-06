@@ -124,7 +124,7 @@ export class DisplayBlackoutGuard {
     this.clearBlackouts();
     const allDisplays = screen.getAllDisplays();
 
-    allDisplays.forEach((disp) => {
+    allDisplays.forEach((disp: any) => {
       if (disp.id !== primaryDisplayId) {
         const win = new BrowserWindow({
           x: disp.bounds.x,

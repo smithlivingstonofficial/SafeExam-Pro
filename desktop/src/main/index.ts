@@ -488,7 +488,7 @@ function startPeriodicSecurityScanner() {
 function configureAttestationHeaders() {
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ["http://*/*", "https://*/*"] },
-    (details, callback) => {
+    (details: any, callback: any) => {
       const targetUrl = details.url;
       const isTarget =
         targetUrl.startsWith(SERVER_BASE_URL) ||
@@ -540,7 +540,7 @@ app.whenReady().then(() => {
   });
 });
 
-app.on("before-quit", (e) => {
+app.on("before-quit", (e: any) => {
   if (isLiveExamActive) {
     e.preventDefault();
     console.log("Blocked app quit attempt during live exam.");
@@ -578,7 +578,7 @@ ipcMain.handle("run-diagnostics", async () => {
 });
 
 // IPC Handler: Launch Exam URL inside hardened window
-ipcMain.handle("launch-exam", async (_event, examUrl: string) => {
+ipcMain.handle("launch-exam", async (_event: any, examUrl: string) => {
   if (!mainWindow) return false;
 
   let target = examUrl.trim();
@@ -596,12 +596,12 @@ ipcMain.handle("launch-exam", async (_event, examUrl: string) => {
 });
 
 // IPC Handler: Exit App
-ipcMain.on("exit-app", (_event, force?: boolean) => {
+ipcMain.on("exit-app", (_event: any, force?: boolean) => {
   promptExitClient(force === true);
 });
 
 // IPC Handler: Update Live Exam State (toggles Win32 low-level hook lock)
-ipcMain.on("set-exam-state", (_event, isLive: boolean) => {
+ipcMain.on("set-exam-state", (_event: any, isLive: boolean) => {
   isLiveExamActive = !!isLive;
   nativeHook.setLocked(isLiveExamActive);
   console.log(`[ExamState] Live exam state: ${isLiveExamActive} — Native Hook setLocked(${isLiveExamActive})`);
@@ -618,13 +618,13 @@ if (!gotTheLock) {
   nativeHook.stop();
   app.quit();
 } else {
-  app.on("second-instance", (_event, commandLine) => {
+  app.on("second-instance", (_event: any, commandLine: string[]) => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
 
       // Check for safeexam:// deep link in command line args
-      const protocolUrl = commandLine.find((arg) => arg.startsWith("safeexam://"));
+      const protocolUrl = commandLine.find((arg: string) => arg.startsWith("safeexam://"));
       if (protocolUrl) {
         const parsed = parseSafeExamProtocolUrl(protocolUrl);
         if (parsed) {
