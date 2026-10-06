@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/auth/rbac";
 import { createAdminClient } from "@/lib/supabase/server";
+import { getUniversitySettings } from "@/lib/settings";
 import {
   StudentsClient,
   StudentItem,
@@ -11,6 +12,7 @@ import {
 export default async function StudentsPage() {
   await requireRole(["admin"]);
   const adminClient = createAdminClient();
+  const settings = await getUniversitySettings();
 
   // 1. Fetch candidate profiles
   const { data: rawProfiles } = await adminClient
@@ -105,10 +107,61 @@ export default async function StudentsPage() {
     submitted_at: string | null;
   }
 
-  const assignmentsByCandidate = new Map<string, CandidateAssignment[]>();
+  const typedAssignments = (rawAssignments || []) as RawAssignment[];
+  const assignmentIds = typedAssignments.map((a) => a.id);
 
-  ((rawAssignments || []) as RawAssignment[]).forEach((a) => {
+  // 5.1 Fetch proctoring sessions for these assignments
+  interface RawProctorSession {
+    assignment_id: string;
+    risk_score: number;
+    flags: Array<{
+      type: string;
+      message?: string;
+      timestamp: string;
+      reason?: string;
+      issuedBy?: string;
+    }>;
+  }
+
+  let rawProctorSessions: RawProctorSession[] = [];
+  if (assignmentIds.length > 0) {
+    const { data: proctorData } = await adminClient
+      .from("proctoring_sessions")
+      .select("assignment_id, risk_score, flags")
+      .in("assignment_id", assignmentIds);
+    rawProctorSessions = (proctorData || []) as RawProctorSession[];
+  }
+
+  const proctorMap = new Map<string, RawProctorSession>(
+    rawProctorSessions.map((p) => [p.assignment_id, p])
+  );
+
+  const assignmentsByCandidate = new Map<string, CandidateAssignment[]>();
+  const nowMs = Date.now();
+
+  typedAssignments.forEach((a) => {
     const sch = scheduleLookup.get(a.schedule_id);
+    const proc = proctorMap.get(a.id);
+    const flagsList = (Array.isArray(proc?.flags) ? proc?.flags : []) as RawProctorSession["flags"];
+
+    let displayStatus = a.status;
+    let submittedAt = a.submitted_at;
+
+    if (a.status === "started" && a.started_at && sch) {
+      const startedMs = new Date(a.started_at).getTime();
+      const durationMs = (sch.duration_minutes || 120) * 60 * 1000;
+      const endMs = sch.end_at ? new Date(sch.end_at).getTime() : Number.MAX_SAFE_INTEGER;
+      const hardDeadline = Math.min(startedMs + durationMs, endMs);
+
+      if (nowMs >= hardDeadline) {
+        displayStatus = "submitted";
+        submittedAt = submittedAt || new Date(hardDeadline).toISOString();
+      }
+    }
+
+    const fsCount = flagsList.filter((f) => f.type === "FULLSCREEN_EXIT").length;
+    const tabCount = flagsList.filter((f) => f.type === "TAB_SWITCH" || f.type === "WINDOW_BLUR").length;
+
     const item: CandidateAssignment = {
       id: a.id,
       scheduleId: a.schedule_id,
@@ -116,16 +169,22 @@ export default async function StudentsPage() {
       startAt: sch ? sch.start_at : a.assigned_at,
       durationMinutes: sch ? sch.duration_minutes : 120,
       proctoringLevel: sch ? sch.proctoring_level : "standard",
-      status: a.status,
+      status: displayStatus,
       assignedAt: a.assigned_at,
       startedAt: a.started_at,
-      submittedAt: a.submitted_at,
+      submittedAt: submittedAt,
+      riskScore: proc?.risk_score || 0,
+      fullscreenExits: fsCount,
+      tabSwitches: tabCount,
+      totalFlags: flagsList.length,
+      flags: flagsList,
     };
 
     const currentList = assignmentsByCandidate.get(a.candidate_id) || [];
     currentList.push(item);
     assignmentsByCandidate.set(a.candidate_id, currentList);
   });
+
 
   // 6. Fetch departments
   const { data: rawDepts } = await adminClient
@@ -149,7 +208,7 @@ export default async function StudentsPage() {
   const initialStudents: StudentItem[] = typedProfiles.map((p) => ({
     id: p.id,
     fullName: p.full_name,
-    email: emailMap.get(p.id) || "candidate@apex.edu",
+    email: emailMap.get(p.id) || "candidate@university.edu",
     phone: p.phone,
     department: p.department || "General",
     isActive: p.is_active,
@@ -157,7 +216,7 @@ export default async function StudentsPage() {
     assignments: assignmentsByCandidate.get(p.id) || [],
   }));
 
-  const universityName = process.env.NEXT_PUBLIC_UNIVERSITY_NAME || "KALASALINGAM ACADEMY OF RESEARCH AND EDUCATION";
+  const universityName = settings.name;
 
   return (
     <StudentsClient

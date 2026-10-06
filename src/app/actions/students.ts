@@ -8,6 +8,8 @@ import {
   reassignDepartmentSchema,
   bulkReassignDepartmentSchema,
   createStudentSchema,
+  bulkCreateStudentsSchema,
+  BulkStudentItemInput,
 } from "@/lib/validations/students";
 import { logAuditEvent } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/rbac";
@@ -143,7 +145,7 @@ export async function enrollDepartmentInScheduleAction(
   // 2. Look up department code if exists
   const { data: dept } = await supabase
     .from("departments")
-    .select("name, code")
+    .select("id, name, code")
     .or(`name.eq.${departmentName},code.eq.${departmentName}`)
     .maybeSingle();
 
@@ -156,11 +158,21 @@ export async function enrollDepartmentInScheduleAction(
   }
 
   // 3. Find all candidate profiles under this department
-  const { data: candidates, error: candError } = await supabase
+  let candidateQuery = supabase
     .from("profiles")
     .select("id")
-    .eq("role", "candidate")
-    .in("department", searchNames);
+    .eq("role", "candidate");
+
+  if (dept && (dept as { id?: string }).id) {
+    const dId = (dept as { id?: string }).id;
+    candidateQuery = candidateQuery.or(
+      `department_id.eq.${dId},department.in.(${searchNames.map((s) => `"${s}"`).join(",")})`
+    );
+  } else {
+    candidateQuery = candidateQuery.in("department", searchNames);
+  }
+
+  const { data: candidates, error: candError } = await candidateQuery;
 
   if (candError) {
     return { error: candError.message, code: "DB_ERROR" };
@@ -481,12 +493,14 @@ export async function createStudentAction(formData: FormData): Promise<ActionRes
     .or(`name.eq.${department},code.eq.${department}`)
     .maybeSingle();
 
-  if (deptRow) {
-    await supabase
-      .from("profiles")
-      .update({ department_id: deptRow.id })
-      .eq("id", newUserId);
-  }
+  await supabase
+    .from("profiles")
+    .update({
+      department,
+      department_id: deptRow ? deptRow.id : null,
+      phone: phone || null,
+    })
+    .eq("id", newUserId);
 
   // If a schedule was specified, assign the candidate immediately
   if (scheduleId) {
@@ -511,4 +525,200 @@ export async function createStudentAction(formData: FormData): Promise<ActionRes
   revalidatePath("/admin/users");
 
   return { success: true, data: { id: newUserId } };
+}
+
+export interface BulkStudentRowError {
+  rowNumber?: number;
+  email?: string;
+  fullName?: string;
+  error: string;
+}
+
+export interface BulkImportResult {
+  success: boolean;
+  totalProcessed: number;
+  createdCount: number;
+  skippedCount: number;
+  updatedCount: number;
+  failedCount: number;
+  errors: BulkStudentRowError[];
+}
+
+/**
+ * Bulk creates candidate accounts from imported CSV records.
+ */
+export async function bulkCreateStudentsAction(
+  students: BulkStudentItemInput[],
+  conflictStrategy: "skip" | "overwrite" = "skip"
+): Promise<{ success: boolean; error?: string; code?: string; data?: BulkImportResult }> {
+  const user = await requireRole(["admin"]);
+
+  const validation = bulkCreateStudentsSchema.safeParse({ students, conflictStrategy });
+  if (!validation.success) {
+    return {
+      success: false,
+      error: validation.error.issues[0]?.message || "Validation failed on bulk payload",
+      code: "VALIDATION_ERROR",
+    };
+  }
+
+  const supabase = createAdminClient();
+
+  // 1. Preload departments to resolve department_id efficiently
+  const { data: deptRows } = await supabase
+    .from("departments")
+    .select("id, name, code");
+
+  const deptLookup = new Map<string, string>();
+  for (const d of deptRows || []) {
+    deptLookup.set(d.name.toLowerCase().trim(), d.id);
+    if (d.code) {
+      deptLookup.set(d.code.toLowerCase().trim(), d.id);
+    }
+  }
+
+  let createdCount = 0;
+  let skippedCount = 0;
+  let updatedCount = 0;
+  let failedCount = 0;
+  const errors: BulkStudentRowError[] = [];
+
+  // Process rows sequentially to avoid auth provider rate limit spikes
+  for (let i = 0; i < students.length; i++) {
+    const row = students[i];
+    const rowNumber = i + 1;
+    const cleanEmail = row.email.toLowerCase().trim();
+    const cleanDept = row.department.trim();
+    const resolvedDeptId = deptLookup.get(cleanDept.toLowerCase()) || null;
+    const initialPassword = row.password && row.password.length >= 6
+      ? row.password
+      : `KluCandidate@${Math.floor(1000 + Math.random() * 9000)}`;
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: cleanEmail,
+        password: initialPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: row.fullName.trim(),
+          role: "candidate",
+          department: cleanDept,
+          phone: row.phone || null,
+          registration_no: row.registrationNo || null,
+        },
+      });
+
+      if (authError) {
+        const isDuplicate =
+          authError.message.toLowerCase().includes("already registered") ||
+          authError.message.toLowerCase().includes("already exists") ||
+          authError.message.toLowerCase().includes("duplicate");
+
+        if (isDuplicate) {
+          if (conflictStrategy === "skip") {
+            skippedCount++;
+            continue;
+          } else {
+            // Overwrite: look up profile and update
+            const { data: existingUser } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("full_name", row.fullName.trim())
+              .maybeSingle();
+
+            if (existingUser) {
+              await supabase
+                .from("profiles")
+                .update({
+                  department: cleanDept,
+                  department_id: resolvedDeptId,
+                  phone: row.phone || null,
+                })
+                .eq("id", existingUser.id);
+              updatedCount++;
+              continue;
+            } else {
+              skippedCount++;
+              continue;
+            }
+          }
+        }
+
+        failedCount++;
+        errors.push({
+          rowNumber,
+          email: cleanEmail,
+          fullName: row.fullName,
+          error: authError.message,
+        });
+        continue;
+      }
+
+      if (authData?.user) {
+        const newUserId = authData.user.id;
+
+        // Ensure candidate profile has department, department_id, and phone recorded
+        await supabase
+          .from("profiles")
+          .update({
+            department: cleanDept,
+            department_id: resolvedDeptId,
+            phone: row.phone || null,
+          })
+          .eq("id", newUserId);
+
+        // If schedule specified, assign candidate
+        if (row.scheduleId) {
+          await supabase.from("exam_assignments").insert({
+            candidate_id: newUserId,
+            schedule_id: row.scheduleId,
+            status: "assigned",
+            assigned_at: new Date().toISOString(),
+          });
+        }
+
+        createdCount++;
+      }
+    } catch (err: unknown) {
+      failedCount++;
+      errors.push({
+        rowNumber,
+        email: cleanEmail,
+        fullName: row.fullName,
+        error: err instanceof Error ? err.message : "Unexpected account provisioning failure",
+      });
+    }
+  }
+
+  // Audit event
+  await logAuditEvent({
+    userId: user.id,
+    action: "BULK_STUDENTS_IMPORTED",
+    entityType: "profiles",
+    details: {
+      totalProcessed: students.length,
+      createdCount,
+      skippedCount,
+      updatedCount,
+      failedCount,
+      conflictStrategy,
+    },
+  });
+
+  revalidatePath("/admin/students");
+  revalidatePath("/admin/departments");
+  revalidatePath("/admin/users");
+
+  return {
+    success: true,
+    data: {
+      success: true,
+      totalProcessed: students.length,
+      createdCount,
+      skippedCount,
+      updatedCount,
+      failedCount,
+      errors,
+    },
+  };
 }

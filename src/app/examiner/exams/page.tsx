@@ -41,11 +41,24 @@ export default async function ExaminerExamsPage() {
     }
   });
 
+  // Fetch departments for blueprint faculty assignment
+  const { data: depts } = await supabase
+    .from("departments")
+    .select("id, name, code")
+    .order("name", { ascending: true });
+
+  const departments = ((depts || []) as Array<{ id: string; name: string; code: string | null }>).map((d) => ({
+    id: d.id,
+    name: d.name,
+    code: d.code,
+  }));
+
   return (
     <ExamBlueprintList
       exams={(exams as any[]) || []}
       examSectionsMap={examSectionsMap}
       examQuestionsCountMap={examQuestionsCountMap}
+      departments={departments}
     />
   );
 }

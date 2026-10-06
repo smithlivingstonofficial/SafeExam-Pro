@@ -76,30 +76,14 @@ export default async function ExamBlueprintDetailPage({ params }: Props) {
     .order("name", { ascending: true });
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-        <Link
-          href="/examiner/exams"
-          className="hover:text-indigo-600 transition-colors flex items-center gap-1"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Exam Blueprints</span>
-        </Link>
-        <ChevronRight className="w-3 h-3 text-slate-400" />
-        <span className="text-slate-900 font-bold truncate">{exam.title}</span>
-      </div>
-
-      {/* Main Interactive Exam Blueprint Composer */}
-      <ExamBlueprintComposer
-        exam={exam}
-        initialSections={(sections as any[]) || []}
-        initialSectionQuestions={(sectionQuestions as any[]) || []}
-        initialLinkedQuestions={(linkedQuestions as any[]) || []}
-        availableQuestions={(availableQuestions as any[]) || []}
-        banks={(banks as any[]) || []}
-        departments={departments}
-      />
-    </div>
+    <ExamBlueprintComposer
+      exam={exam}
+      initialSections={(sections as any[]) || []}
+      initialSectionQuestions={(sectionQuestions as any[]) || []}
+      initialLinkedQuestions={(linkedQuestions as any[]) || []}
+      availableQuestions={(availableQuestions as any[]) || []}
+      banks={(banks as any[]) || []}
+      departments={departments}
+    />
   );
 }

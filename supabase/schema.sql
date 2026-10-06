@@ -282,6 +282,23 @@ CREATE TABLE IF NOT EXISTS public.notifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
+-- 3.16 Real-Time Exam Queries (Candidate-Invigilator Support Desk)
+CREATE TABLE IF NOT EXISTS public.exam_queries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    assignment_id UUID NOT NULL REFERENCES public.exam_assignments(id) ON DELETE CASCADE,
+    candidate_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    category TEXT NOT NULL CHECK (category IN ('technical', 'question_clarity', 'audio_video', 'connectivity', 'general')),
+    question_number INTEGER,
+    message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved')),
+    resolved_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    resolved_by_name TEXT,
+    response_message TEXT,
+    resolved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
 -- 4. PERFORMANCE INDEXES (High Concurrency Exam Optimization)
 CREATE INDEX IF NOT EXISTS idx_questions_bank_id ON public.questions (bank_id);
 CREATE INDEX IF NOT EXISTS idx_questions_subject_topic ON public.questions (subject, topic);
@@ -302,7 +319,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON public.notifications (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, full_name, avatar_url, role)
+    INSERT INTO public.profiles (id, full_name, avatar_url, role, department, phone)
     VALUES (
         new.id,
         COALESCE(new.raw_user_meta_data->>'full_name', CASE WHEN LOWER(new.email) = 'smithlivingston2005@gmail.com' THEN 'Smith Livingston' ELSE new.email END),
@@ -310,7 +327,9 @@ BEGIN
         CASE
             WHEN LOWER(new.email) = 'smithlivingston2005@gmail.com' THEN 'admin'::user_role
             ELSE COALESCE((new.raw_user_meta_data->>'role')::user_role, 'candidate'::user_role)
-        END
+        END,
+        new.raw_user_meta_data->>'department',
+        new.raw_user_meta_data->>'phone'
     )
     ON CONFLICT (id) DO UPDATE SET
         role = CASE
@@ -318,7 +337,9 @@ BEGIN
             ELSE profiles.role
         END,
         full_name = EXCLUDED.full_name,
-        avatar_url = EXCLUDED.avatar_url;
+        avatar_url = EXCLUDED.avatar_url,
+        department = COALESCE(EXCLUDED.department, profiles.department),
+        phone = COALESCE(EXCLUDED.phone, profiles.phone);
     RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

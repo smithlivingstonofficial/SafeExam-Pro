@@ -1,27 +1,26 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/server";
 import {
-  Users,
   Building2,
   FileSpreadsheet,
   History,
-  ShieldCheck,
+  GraduationCap,
   ArrowRight,
   Settings,
-  Lock,
-  Calendar,
-  AlertTriangle,
+  CalendarCheck,
+  CheckCircle2,
   Clock,
-  Sparkles,
+  ExternalLink,
 } from "lucide-react";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminOverviewPage() {
   const adminClient = createAdminClient();
 
-  // 1. Fetch real counts
+  // 1. Fetch system metrics in parallel
   const [
     { count: candidateCount },
-    { count: staffCount },
     { count: deptCount },
     { count: questionCount },
     { count: auditCount },
@@ -29,36 +28,45 @@ export default async function AdminOverviewPage() {
     { data: latestAuditLogs },
   ] = await Promise.all([
     adminClient.from("profiles").select("*", { count: "exact", head: true }).eq("role", "candidate"),
-    adminClient.from("profiles").select("*", { count: "exact", head: true }).neq("role", "candidate"),
     adminClient.from("departments").select("*", { count: "exact", head: true }),
     adminClient.from("questions").select("*", { count: "exact", head: true }),
     adminClient.from("audit_logs").select("*", { count: "exact", head: true }),
-    adminClient.from("exam_schedules").select("id, duration_minutes, proctoring_level, status, exams(title)").eq("status", "active").limit(1),
-    adminClient.from("audit_logs").select("id, action, ip_address, created_at, user_id").order("created_at", { ascending: false }).limit(6),
+    adminClient
+      .from("exam_schedules")
+      .select("id, duration_minutes, proctoring_level, status, start_at, end_at, exams(title)")
+      .order("start_at", { ascending: true })
+      .limit(2),
+    adminClient
+      .from("audit_logs")
+      .select("id, action, created_at, user_id")
+      .order("created_at", { ascending: false })
+      .limit(6),
   ]);
 
   // Lookup users for recent audit logs
-  const typedLatestLogs = (latestAuditLogs || []) as Array<{
+  const typedLogs = (latestAuditLogs || []) as Array<{
     id: string;
     action: string;
-    ip_address: string | null;
     created_at: string;
     user_id: string | null;
   }>;
 
-  const userIds = typedLatestLogs.map((l) => l.user_id).filter(Boolean) as string[];
+  const userIds = typedLogs.map((l) => l.user_id).filter(Boolean) as string[];
   const { data: userProfiles } = await adminClient
     .from("profiles")
-    .select("id, full_name, role")
+    .select("id, full_name")
     .in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]);
 
-  const typedUserProfiles = (userProfiles || []) as Array<{
+  const typedProfiles = (userProfiles || []) as Array<{
     id: string;
     full_name: string;
-    role: string;
   }>;
 
-  const userMap = new Map(typedUserProfiles.map((u) => [u.id, u]));
+  const userMap = new Map<string, string>(typedProfiles.map((u: { id: string; full_name: string }) => [u.id, u.full_name]));
+
+  const formatAction = (action: string) => {
+    return action.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
   const activeSchedule = activeSchedules?.[0] as {
     id: string;
@@ -69,206 +77,259 @@ export default async function AdminOverviewPage() {
   } | null;
 
   return (
-    <div className="space-y-8">
-      {/* Page Title & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 max-w-full">
+      {/* Clean Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-purple-700">
-            Institutional Governance
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Executive Examination Dashboard
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            Admin Overview
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Real-time platform oversight, institutional policies, and tamper-resistant audit monitoring.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Entrance examination status, candidates, and real-time activity log.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/students"
+            className="px-3.5 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>Manage Candidates</span>
+          </Link>
           <Link
             href="/admin/settings"
-            className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+            className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200/90 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Institution Settings</span>
+            <Settings className="w-4 h-4 text-slate-500" />
+            <span>Settings</span>
           </Link>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 Clean Metric Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Candidates */}
         <Link
           href="/admin/students"
-          className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-purple-300 shadow-xs transition-all group block"
+          className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:border-purple-300 hover:shadow-xs transition-all flex items-center justify-between group"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase font-extrabold text-slate-500 group-hover:text-purple-700 transition-colors">
-              Registered Candidates
-            </span>
-            <div className="p-2 rounded-lg bg-blue-50 text-blue-700 group-hover:bg-purple-50 group-hover:text-purple-700 transition-colors">
-              <Users className="w-4 h-4" />
+          <div>
+            <div className="text-[11px] font-semibold text-slate-500">
+              Candidates
+            </div>
+            <div className="text-2xl font-bold text-slate-900 mt-0.5">
+              {candidateCount || 0}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              Registered applicants
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">{candidateCount || 0}</div>
-          <div className="text-xs text-slate-500 mt-1 font-medium">{staffCount || 0} Faculty / Staff</div>
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <GraduationCap className="w-5 h-5" />
+          </div>
         </Link>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase font-extrabold text-slate-500">Departments</span>
-            <div className="p-2 rounded-lg bg-purple-50 text-purple-700">
-              <Building2 className="w-4 h-4" />
+        {/* Departments */}
+        <Link
+          href="/admin/departments"
+          className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:border-blue-300 hover:shadow-xs transition-all flex items-center justify-between group"
+        >
+          <div>
+            <div className="text-[11px] font-semibold text-slate-500">
+              Departments
+            </div>
+            <div className="text-2xl font-bold text-slate-900 mt-0.5">
+              {deptCount || 0}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              Academic units
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">{deptCount || 0} Units</div>
-          <div className="text-xs text-emerald-600 mt-1 font-medium">Academic Roster</div>
-        </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <Building2 className="w-5 h-5" />
+          </div>
+        </Link>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase font-extrabold text-slate-500">Question Repository</span>
-            <div className="p-2 rounded-lg bg-indigo-50 text-indigo-700">
-              <FileSpreadsheet className="w-4 h-4" />
+        {/* Question Pool */}
+        <Link
+          href="/examiner/banks"
+          target="_blank"
+          className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition-all flex items-center justify-between group"
+        >
+          <div>
+            <div className="text-[11px] font-semibold text-slate-500">
+              Question Pool
+            </div>
+            <div className="text-2xl font-bold text-slate-900 mt-0.5">
+              {questionCount || 0}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              Questions in bank
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">{questionCount || 0} Items</div>
-          <div className="text-xs text-indigo-700 mt-1 font-medium">Verified Active Questions</div>
-        </div>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <FileSpreadsheet className="w-5 h-5" />
+          </div>
+        </Link>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs uppercase font-extrabold text-slate-500">Audit Trail</span>
-            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700">
-              <History className="w-4 h-4" />
+        {/* Audit Events */}
+        <Link
+          href="/admin/audit"
+          className="p-4 rounded-xl bg-white border border-slate-200/80 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all flex items-center justify-between group"
+        >
+          <div>
+            <div className="text-[11px] font-semibold text-slate-500">
+              Audit Logs
+            </div>
+            <div className="text-2xl font-bold text-slate-900 mt-0.5">
+              {auditCount || 0}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              Logged events
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-slate-900">{auditCount || 0}</div>
-          <div className="text-xs text-emerald-700 mt-1 font-medium">Immutable Security Events</div>
-        </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <History className="w-5 h-5" />
+          </div>
+        </Link>
       </div>
 
-      {/* Main Grid: Live Session Status & Audit Stream */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Live Examination Pulse (1 Col) */}
-        <div className="space-y-4">
-          <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-            <Lock className="w-4 h-4 text-purple-700" />
-            <span>Live Exam Center Status</span>
-          </h2>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4 text-xs">
-            {activeSchedule ? (
-              <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-100">
-                <div className="flex items-center justify-between">
-                  <span className="font-extrabold text-purple-900 text-xs">
-                    {activeSchedule.exams?.title || "Active Examination"}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                    In Progress
-                  </span>
-                </div>
-                <div className="text-[11px] text-purple-700 mt-1">
-                  Duration: {activeSchedule.duration_minutes} Mins • Proctoring: {activeSchedule.proctoring_level}
-                </div>
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600">
-                <span className="font-bold text-slate-800 block mb-0.5">No Active Exam Session</span>
-                <span className="text-[11px]">Next session will appear when scheduled delivery windows open.</span>
-              </div>
-            )}
-
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between text-slate-600">
-                <span>Lockdown Mode Enforcement:</span>
-                <strong className="text-purple-700 font-bold">SafeExam Lockdown Protocol</strong>
-              </div>
-              <div className="flex items-center justify-between text-slate-600">
-                <span>Auto-Save Frequency:</span>
-                <strong className="text-slate-800 font-bold">Every 30s</strong>
-              </div>
-              <div className="flex items-center justify-between text-slate-600">
-                <span>Security Infrastructure:</span>
-                <strong className="text-emerald-700 font-bold">Cloudflare WAF / Active</strong>
-              </div>
+      {/* Main 2-Column Section: Active Exam Status & Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Left Card: Active Examination Status (5 cols) */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col justify-between space-y-4">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h2 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <CalendarCheck className="w-4 h-4 text-purple-700" />
+                <span>Active Examination Status</span>
+              </h2>
+              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                System Healthy
+              </span>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
-              <Link
-                href="/admin/students"
-                className="w-full py-2.5 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-center border border-purple-200 transition-colors"
-              >
-                Students & Exam Allocations →
-              </Link>
-              <Link
-                href="/admin/departments"
-                className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-center border border-slate-200 transition-colors"
-              >
-                Manage Academic Departments →
-              </Link>
-              <Link
-                href="/admin/users"
-                className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-center border border-slate-200 transition-colors"
-              >
-                Manage Institutional Roster →
-              </Link>
+            <div className="mt-3.5 space-y-3">
+              {activeSchedule ? (
+                <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-200/70">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-900 text-xs truncate">
+                      {activeSchedule.exams?.title || "Active Examination Session"}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0">
+                      In Progress
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 mt-1.5">
+                    Duration: {activeSchedule.duration_minutes} Mins • Proctoring: {activeSchedule.proctoring_level}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-600">
+                  <div className="font-bold text-slate-800 text-xs">
+                    No Live Exam Running
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Testing nodes will activate automatically during scheduled exam windows.
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Status Checks */}
+              <div className="space-y-1.5 text-xs pt-1">
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-slate-50/70 text-slate-600">
+                  <span>Lockdown Browser:</span>
+                  <span className="font-semibold text-slate-800">SafeExam Enforced</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-slate-50/70 text-slate-600">
+                  <span>Auto-Save Frequency:</span>
+                  <span className="font-semibold text-slate-800">Every 30s</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-slate-50/70 text-slate-600">
+                  <span>Security & WAF:</span>
+                  <span className="font-semibold text-emerald-700">Protected</span>
+                </div>
+              </div>
             </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100">
+            <Link
+              href="/admin/students"
+              className="w-full py-2 px-3 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-900 font-semibold text-xs text-center border border-purple-200/70 transition-colors flex items-center justify-center gap-1"
+            >
+              <span>View Candidate Enrollments</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
 
-        {/* Real-time Audit Ledger Preview (2 Cols) */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-              <History className="w-4 h-4 text-purple-700" />
-              <span>Real-Time Audit & Security Stream</span>
-            </h2>
-            <Link
-              href="/admin/audit"
-              className="text-xs font-bold text-purple-700 hover:text-purple-800 hover:underline"
-            >
-              View Full Audit Ledger →
-            </Link>
-          </div>
+        {/* Right Card: Recent Activity Stream (7 cols) */}
+        <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs flex flex-col justify-between space-y-4">
+          <div>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h2 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <History className="w-4 h-4 text-purple-700" />
+                <span>Recent System Activity</span>
+              </h2>
+              <Link
+                href="/admin/audit"
+                className="text-xs font-semibold text-purple-700 hover:text-purple-900 flex items-center gap-1 group"
+              >
+                <span>View Full Log</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
-            {latestAuditLogs && latestAuditLogs.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-bold text-[10px] tracking-wider">
-                    <tr>
-                      <th className="py-3 px-4">Audit ID</th>
-                      <th className="py-3 px-4">Event Action</th>
-                      <th className="py-3 px-4">User</th>
-                      <th className="py-3 px-4">IP Address</th>
-                      <th className="py-3 px-4 text-right">Recorded</th>
+            <div className="overflow-x-auto mt-2">
+              {typedLogs && typedLogs.length > 0 ? (
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-slate-400 uppercase font-semibold text-[10px] tracking-wider">
+                      <th className="py-2 px-2">Action</th>
+                      <th className="py-2 px-2">User</th>
+                      <th className="py-2 px-2 text-right">Time</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {typedLatestLogs.map((log) => {
-                      const userObj = log.user_id ? userMap.get(log.user_id) : null;
-                      const userDisplay = userObj ? `${userObj.full_name} (${userObj.role})` : log.user_id ? `User ${log.user_id.slice(0, 6)}` : "System";
+                    {typedLogs.map((log) => {
+                      const userName = log.user_id ? userMap.get(log.user_id) : "System";
 
                       return (
-                        <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="py-3 px-4 font-mono font-medium text-slate-500">{log.id.slice(0, 8).toUpperCase()}</td>
-                          <td className="py-3 px-4 font-bold text-slate-800">{log.action}</td>
-                          <td className="py-3 px-4 text-slate-700">{userDisplay}</td>
-                          <td className="py-3 px-4 font-mono text-slate-500">{log.ip_address || "127.0.0.1"}</td>
-                          <td className="py-3 px-4 text-right text-slate-400 font-medium">
-                            {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-2 font-medium text-slate-800">
+                            {formatAction(log.action)}
+                          </td>
+                          <td className="py-2.5 px-2 text-slate-500 text-xs">
+                            {userName || "System"}
+                          </td>
+                          <td className="py-2.5 px-2 text-right text-slate-400 text-[11px] whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-              </div>
-            ) : (
-              <div className="p-10 text-center text-xs text-slate-500">
-                No audit events recorded yet. Operations will be logged here in real-time.
-              </div>
-            )}
+              ) : (
+                <div className="py-8 text-center text-xs text-slate-400">
+                  No activity logged yet.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100 text-right">
+            <Link
+              href="/admin/audit"
+              className="text-xs font-semibold text-purple-700 hover:underline"
+            >
+              Open Complete Audit Trail &rarr;
+            </Link>
           </div>
         </div>
       </div>

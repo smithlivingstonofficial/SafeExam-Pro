@@ -163,77 +163,11 @@ export async function loginAction(formData: FormData): Promise<AuthResponse> {
   redirect(`/${userRole}`);
 }
 
-export async function registerAction(formData: FormData): Promise<AuthResponse> {
-  const rawData = {
-    fullName: formData.get("fullName") as string,
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-    confirmPassword: formData.get("confirmPassword") as string,
-    department: formData.get("department") as string,
-    phone: (formData.get("phone") as string) || undefined,
+export async function registerAction(_formData: FormData): Promise<AuthResponse> {
+  return {
+    error: "Direct public registration is disabled. Student and candidate accounts are provisioned exclusively by the University Administrator.",
+    code: "REGISTRATION_DISABLED",
   };
-
-  // 1. Zod Input Validation
-  const validation = registerSchema.safeParse(rawData);
-
-  if (!validation.success) {
-    return {
-      error: validation.error.issues[0]?.message || "Invalid registration form",
-      code: "VALIDATION_ERROR",
-    };
-  }
-
-  const { fullName, email, password, department, phone } = validation.data;
-
-  // 2. Register user securely with Supabase Auth
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
-        role: email.toLowerCase() === "smithlivingston2005@gmail.com" ? "admin" : "candidate",
-        department,
-        phone,
-      },
-    },
-  });
-
-  if (error || !data.user) {
-    return {
-      error: error?.message || "Failed to create account",
-      code: "REGISTRATION_FAILED",
-    };
-  }
-
-  const isMaster = email.toLowerCase() === "smithlivingston2005@gmail.com";
-
-  // 3. Resolve department_id and link profile
-  const adminClient = (await import("@/lib/supabase/server")).createAdminClient();
-  const { data: deptRow } = await adminClient
-    .from("departments")
-    .select("id")
-    .or(`name.eq.${department},code.eq.${department}`)
-    .maybeSingle();
-
-  if (deptRow) {
-    await adminClient
-      .from("profiles")
-      .update({ department_id: deptRow.id })
-      .eq("id", data.user.id);
-  }
-
-  // 4. Audit Log
-  await logAuditEvent({
-    userId: data.user.id,
-    action: isMaster ? "MASTER_ADMIN_REGISTERED" : "CANDIDATE_REGISTERED",
-    entityType: "profiles",
-    entityId: data.user.id,
-    details: { fullName, email, department, departmentId: deptRow?.id, role: isMaster ? "admin" : "candidate" },
-  });
-
-  redirect(isMaster ? "/admin" : "/candidate");
 }
 
 export async function logoutAction() {

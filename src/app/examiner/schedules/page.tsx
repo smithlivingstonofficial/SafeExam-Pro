@@ -60,6 +60,40 @@ export default async function ExaminerSchedulesPage() {
     departmentId: c.department_id,
   }));
 
+  // Fetch exam sections & questions count to show section blueprint in the schedule modal
+  const { data: rawSections } = await supabase
+    .from("exam_sections")
+    .select("id, exam_id, title, scope, order_index, marking_scheme")
+    .order("order_index", { ascending: true });
+
+  const { data: sectionQuestions } = await supabase
+    .from("exam_section_questions")
+    .select("id, section_id, marks");
+
+  const qCountMap = new Map<string, { count: number; totalMarks: number }>();
+  (sectionQuestions || []).forEach((sq) => {
+    const existing = qCountMap.get(sq.section_id) || { count: 0, totalMarks: 0 };
+    existing.count += 1;
+    existing.totalMarks += sq.marks || 4;
+    qCountMap.set(sq.section_id, existing);
+  });
+
+  const examSections = (rawSections || []).map((s) => {
+    const stats = qCountMap.get(s.id) || { count: 0, totalMarks: 0 };
+    const scheme = (s.marking_scheme as any) || {};
+    return {
+      id: s.id,
+      examId: s.exam_id,
+      title: s.title,
+      scope: s.scope,
+      orderIndex: s.order_index,
+      questionCount: stats.count,
+      totalMarks: stats.totalMarks || stats.count * (scheme.correctMarks || 4),
+      correctMarks: scheme.correctMarks || 4,
+      negativeMarks: scheme.negativeMarks || 1,
+    };
+  });
+
   return (
     <ExamScheduleManager
       schedules={(schedules as any[]) || []}
@@ -67,6 +101,7 @@ export default async function ExaminerSchedulesPage() {
       departments={departments}
       initialAssignments={(assignments as any[]) || []}
       candidatePool={candidatePool}
+      examSections={examSections}
     />
   );
 }

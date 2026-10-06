@@ -1,0 +1,362 @@
+// =========================================================================================
+// SAFEEXAM PRO — OFFICIAL ENTRANCE EXAMINATION QUESTION BANK TEMPLATE (AIKEN FORMAT)
+// STRUCTURE: TOTAL 50 QUESTIONS (20 COMMON APTITUDE + 30 DEPARTMENT-SPECIFIC DISCIPLINE)
+// =========================================================================================
+
+// -----------------------------------------------------------------------------------------
+// SECTION A: 20 COMMON QUESTIONS (RESEARCH METHODOLOGY, QUANTITATIVE & ANALYTICAL APTITUDE)
+// -----------------------------------------------------------------------------------------
+
+If the probability of success in a Bernoulli trial is p = 0.4, what is the variance of a Binomial distribution with n = 20 trials?
+A. 4.8
+B. 8.0
+C. 3.2
+D. 6.4
+ANSWER: A
+
+A pump can fill a water tank in 6 hours and a drainage valve can empty it in 8 hours. If both operate simultaneously, in how many hours will the tank fill completely?
+A. 18 Hours
+B. 24 Hours
+C. 14 Hours
+D. 12 Hours
+ANSWER: B
+
+In statistical hypothesis testing, a Type I error (alpha error) is committed when:
+A. The null hypothesis is true but is incorrectly rejected
+B. The null hypothesis is false and is incorrectly accepted
+C. The sample variance exceeds population variance
+D. The alternative hypothesis is proven conclusively
+ANSWER: A
+
+In empirical research, which sampling technique selects every k-th element from an ordered sampling frame after a random starting point?
+A. Stratified Random Sampling
+B. Cluster Sampling
+C. Systematic Sampling
+D. Convenience Sampling
+ANSWER: C
+
+Which statistical metric measures the degree of linear association between two continuous random variables?
+A. Cronbach's Alpha
+B. Pearson Correlation Coefficient (r)
+C. Chi-Square Goodness of Fit
+D. Gini Coefficient
+ANSWER: B
+
+In deductive reasoning, if 'All researchers publish papers' and 'Dr. Raman is a researcher', which conclusion logically follows?
+A. Dr. Raman may publish papers
+B. Dr. Raman publishes papers
+C. All paper publishers are Dr. Raman
+D. No researchers publish papers
+ANSWER: B
+
+In a standard normal distribution (Z-distribution), what is the mean and standard deviation?
+A. Mean = 1, Std Dev = 0
+B. Mean = 0, Std Dev = 1
+C. Mean = 0, Std Dev = 0
+D. Mean = 100, Std Dev = 15
+ANSWER: B
+
+Which scale of measurement classifies data into distinct ordered categories with meaningful intervals and an absolute true zero point?
+A. Nominal Scale
+B. Ordinal Scale
+C. Interval Scale
+D. Ratio Scale
+ANSWER: D
+
+A researcher flips 3 fair coins simultaneously. What is the probability of obtaining at least two heads?
+A. 1/8
+B. 3/8
+C. 1/2
+D. 5/8
+ANSWER: C
+
+Which referencing format is most widely utilized in computer science and electrical engineering publications?
+A. APA 7th Edition
+B. MLA 9th Edition
+C. IEEE Citation Style
+D. Chicago Manual of Style
+ANSWER: C
+
+Plagiarism detection tools evaluate manuscripts primarily by computing which similarity measure across text corpora?
+A. Jaccard N-gram String Similarity and Fingerprinting
+B. Euclidean Distance of Word Lengths
+C. Matrix Determinant Decomposition
+D. Fourier Frequency Transformation
+ANSWER: A
+
+Which asymptotic notation represents the formal mathematical upper bound of an algorithm's growth rate?
+A. Big-O (O)
+B. Big-Omega (Omega)
+C. Big-Theta (Theta)
+D. Little-o (o)
+ANSWER: A
+
+In qualitative research methodology, what is the primary purpose of data triangulation?
+A. To speed up questionnaire distribution
+B. To validate findings by cross-verifying multiple data sources or methods
+C. To replace statistical hypothesis testing completely
+D. To eliminate qualitative observations
+ANSWER: B
+
+Which cloud computing deployment model delivers shared computing resources across multiple organizations with common compliance needs?
+A. Public Cloud
+B. Community Cloud
+C. Private Cloud
+D. Hybrid Cloud
+ANSWER: B
+
+In empirical research, an extraneous variable that unintentionally influences the relationship between independent and dependent variables is known as:
+A. Confounding Variable
+B. Moderating Variable
+C. Dummy Variable
+D. Categorical Variable
+ANSWER: A
+
+What is the primary objective of an exploratory research design?
+A. To test a conclusive mathematical proof
+B. To gain familiarity with a phenomenon or acquire new insights for formulating a more precise problem
+C. To determine the exact frequency of an occurrence
+D. To perform post-hoc statistical regression
+ANSWER: B
+
+Which probability distribution is commonly used to model the number of independent events occurring within a fixed interval of time or space?
+A. Poisson Distribution
+B. Uniform Distribution
+C. Exponential Distribution
+D. Bernoulli Distribution
+ANSWER: A
+
+In double-blind peer review processes, who among the following is blinded to identity?
+A. Only the authors
+B. Only the reviewers
+C. Both the authors and the reviewers
+D. The journal editor only
+ANSWER: C
+
+Which type of validity assesses whether a test or research instrument appears effective in terms of its stated aims to the test taker?
+A. Face Validity
+B. Criterion Validity
+C. Construct Validity
+D. Content Validity
+ANSWER: A
+
+In linear regression analysis, what does the coefficient of determination (R-squared) quantify?
+A. The slope of the regression line
+B. The proportion of the variance in the dependent variable predictable from the independent variable
+C. The standard error of estimate
+D. The autocorrelation of residuals
+ANSWER: B
+
+// -----------------------------------------------------------------------------------------
+// SECTION B: 30 DEPARTMENT SPECIFIC QUESTIONS (CORE COMPUTER SCIENCE & APPLICATIONS)
+// -----------------------------------------------------------------------------------------
+
+What is the average time complexity of the QuickSort algorithm?
+A. O(n log n)
+B. O(n^2)
+C. O(log n)
+D. O(n)
+ANSWER: A
+
+Which data structure operates strictly on a Last-In, First-Out (LIFO) basis?
+A. Queue
+B. Stack
+C. Binary Search Tree
+D. Doubly Linked List
+ANSWER: B
+
+In relational algebra, which operator selects rows from a table that satisfy a specified predicate condition?
+A. Projection (pi)
+B. Selection (sigma)
+C. Cartesian Product (x)
+D. Natural Join (|><|)
+ANSWER: B
+
+Which CPU scheduling algorithm is non-preemptive and allocates the processor to the waiting task with the smallest execution requirement?
+A. Round Robin
+B. First-Come First-Served
+C. Non-preemptive Shortest Job First (SJF)
+D. Multilevel Feedback Queue
+ANSWER: C
+
+What is the primary function of the Translation Lookaside Buffer (TLB) in virtual memory architectures?
+A. To cache recently translated virtual-to-physical page frame addresses
+B. To store page replacement reference bits
+C. To buffer disk I/O write transfers
+D. To handle peripheral interrupt vectors
+ANSWER: A
+
+Which database normalization form eliminates transitive dependencies of non-prime attributes on the primary key?
+A. First Normal Form (1NF)
+B. Second Normal Form (2NF)
+C. Third Normal Form (3NF)
+D. Boyce-Codd Normal Form (BCNF)
+ANSWER: C
+
+What is the worst-case search time complexity in an unbalanced Binary Search Tree (BST) containing n nodes?
+A. O(1)
+B. O(log n)
+C. O(n)
+D. O(n log n)
+ANSWER: C
+
+Which layer of the OSI 7-layer reference model is responsible for reliable end-to-end transport, segment reassembly, and flow control?
+A. Physical Layer
+B. Data Link Layer
+C. Transport Layer
+D. Network Layer
+ANSWER: C
+
+In Python, which of the following standard data types is immutable?
+A. List
+B. Dictionary
+C. Tuple
+D. Set
+ANSWER: C
+
+What is the maximum height of an AVL self-balancing binary search tree with n nodes?
+A. O(1)
+B. O(log n)
+C. O(n)
+D. O(n^2)
+ANSWER: B
+
+Which software design pattern restricts class instantiation to a single instance while providing global access?
+A. Factory Pattern
+B. Singleton Pattern
+C. Observer Pattern
+D. Decorator Pattern
+ANSWER: B
+
+In relational databases, what must a foreign key attribute in a child table reference in the parent table?
+A. A nullable non-indexed column
+B. A Primary Key or Unique Candidate Key
+C. Any character column
+D. An auto-increment sequence only
+ANSWER: B
+
+What is the time complexity of constructing a Binary Max-Heap from an unordered array of n items using Floyd's build-heap algorithm?
+A. O(n)
+B. O(n log n)
+C. O(log n)
+D. O(n^2)
+ANSWER: A
+
+Which symmetric block cipher is adopted by NIST as the Federal Information Processing Standard for encrypting sensitive data?
+A. DES
+B. Blowfish
+C. Advanced Encryption Standard (AES)
+D. RC4
+ANSWER: C
+
+In dynamic programming, which fundamental property allows an algorithm to reuse solutions to subproblems without recomputation?
+A. Greedy Choice Property
+B. Overlapping Subproblems
+C. Divide and Conquer
+D. Randomization
+ANSWER: B
+
+Which graph traversal algorithm utilizes a First-In, First-Out (FIFO) queue data structure to visit vertices layer by layer?
+A. Depth-First Search (DFS)
+B. Breadth-First Search (BFS)
+C. Dijkstra's Algorithm
+D. Kruskal's Algorithm
+ANSWER: B
+
+Which page replacement algorithm is susceptible to Belady's Anomaly where increasing physical page frames increases page faults?
+A. Least Recently Used (LRU)
+B. Optimal Page Replacement (OPT)
+C. First-In First-Out (FIFO)
+D. Clock Algorithm
+ANSWER: C
+
+In object-oriented programming, defining multiple methods in the same class with identical names but differing argument signatures is:
+A. Method Overriding
+B. Method Overloading
+C. Dynamic Binding
+D. Data Hiding
+ANSWER: B
+
+Which sorting algorithm provides guaranteed O(n log n) worst-case time complexity and is inherently stable?
+A. QuickSort
+B. HeapSort
+C. MergeSort
+D. SelectionSort
+ANSWER: C
+
+Which network protocol resolves a logical 32-bit IPv4 address into its corresponding 48-bit physical MAC address?
+A. DNS
+B. DHCP
+C. Address Resolution Protocol (ARP)
+D. ICMP
+ANSWER: C
+
+Which runtime data structure stores stack frames containing local variables, parameters, and return addresses during function execution?
+A. Call Stack
+B. Heap Segment
+C. B-Tree
+D. Hash Table
+ANSWER: A
+
+In SQL queries, which clause is specifically used to filter aggregated group results produced by a GROUP BY statement?
+A. WHERE
+B. ORDER BY
+C. HAVING
+D. LIMIT
+ANSWER: C
+
+In deep neural networks, which problem occurs when gradients shrink exponentially during backpropagation through many layers?
+A. Exploding Gradient Problem
+B. Vanishing Gradient Problem
+C. Overfitting
+D. Catastrophic Forgetting
+ANSWER: B
+
+Which binary tree traversal algorithm processes the left subtree, then the current root node, and finally the right subtree?
+A. Pre-order Traversal
+B. In-order Traversal
+C. Post-order Traversal
+D. Level-order Traversal
+ANSWER: B
+
+Which software testing paradigm examines the internal program logic, loop boundaries, and conditional code execution paths?
+A. Black-Box Testing
+B. White-Box Testing
+C. Stress Testing
+D. Usability Testing
+ANSWER: B
+
+The cryptographic hash function SHA-256 belongs to which NIST standard family of algorithms?
+A. MD5
+B. SHA-1
+C. SHA-256 (SHA-2)
+D. SHA-3
+ANSWER: C
+
+Which disk scheduling algorithm sweeps across the platter servicing requests in one direction and immediately reverses at the boundary?
+A. FCFS
+B. Shortest Seek Time First (SSTF)
+C. SCAN (Elevator Algorithm)
+D. C-SCAN
+ANSWER: C
+
+In compiler construction, which compilation phase scans source characters and groups them into lexical tokens?
+A. Lexical Analysis (Tokenizer)
+B. Syntax Analysis (Parser)
+C. Semantic Analysis
+D. Code Optimization
+ANSWER: A
+
+In Git version control, which command integrates committed changes from a designated branch into the active branch?
+A. git branch
+B. git merge
+C. git checkout
+D. git stash
+ANSWER: B
+
+In distributed systems, which consensus algorithm was specifically engineered to be more understandable than Paxos?
+A. Zab
+B. Two-Phase Commit
+C. Raft
+D. Byzantine Fault Tolerance
+ANSWER: C

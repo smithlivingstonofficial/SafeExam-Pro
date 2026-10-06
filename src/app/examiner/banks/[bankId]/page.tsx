@@ -49,11 +49,11 @@ export default async function QuestionBankDetailPage({ params }: Props) {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Breadcrumb Header */}
       <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
         <Link
-          href="/examiner"
+          href="/examiner/banks"
           className="hover:text-indigo-600 transition-colors flex items-center gap-1"
         >
           <ArrowLeft className="w-3.5 h-3.5" />

@@ -18,9 +18,15 @@ import {
 
 interface Props {
   departments: string[];
+  institutionName?: string;
+  allowRegistration?: boolean;
 }
 
-export function RegisterFormClient({ departments }: Props) {
+export function RegisterFormClient({
+  departments,
+  institutionName = "KALASALINGAM ACADEMY OF RESEARCH AND EDUCATION",
+  allowRegistration = true,
+}: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -54,6 +60,60 @@ export function RegisterFormClient({ departments }: Props) {
     }
   }
 
+  if (!allowRegistration) {
+    return (
+      <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white">
+        <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white shadow-xs">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="font-bold text-base tracking-tight text-slate-900">
+                  SafeExam Pro
+                </span>
+                <span className="ml-2 text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700">
+                  Candidate Enrollment
+                </span>
+              </div>
+            </Link>
+
+            <Link
+              href="/login"
+              className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              Sign In →
+            </Link>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center space-y-4">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+              <Lock className="w-6 h-6" />
+            </div>
+            <h1 className="text-xl font-extrabold text-slate-900">
+              Candidate Registration Closed
+            </h1>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Self-registration is currently closed by {institutionName}.
+              Candidate access is provisioned directly through institutional roster imports.
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 font-bold text-xs text-white transition-colors"
+              >
+                Go to Sign In
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white">
       {/* University Header */}
@@ -64,11 +124,16 @@ export function RegisterFormClient({ departments }: Props) {
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold text-base tracking-tight text-slate-900">
-                SafeExam Pro
-              </span>
-              <span className="ml-2 text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700">
-                Candidate Enrollment
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-base tracking-tight text-slate-900">
+                  SafeExam Pro
+                </span>
+                <span className="ml-2 text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700">
+                  Candidate Enrollment
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 hidden sm:inline truncate max-w-sm">
+                {institutionName}
               </span>
             </div>
           </Link>
@@ -94,7 +159,7 @@ export function RegisterFormClient({ departments }: Props) {
                 Candidate Registration
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Apex State University Entrance Examination Portal
+                {institutionName} Entrance Examination Portal
               </p>
             </div>
 

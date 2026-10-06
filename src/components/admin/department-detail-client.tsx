@@ -466,7 +466,7 @@ export function DepartmentDetailClient({
                 <GraduationCap className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <h4 className="text-xs font-bold text-slate-800">No Candidates Enrolled</h4>
                 <p className="text-[11px] text-slate-500 mt-1 max-w-sm mx-auto">
-                  Candidates who register for entrance examinations under &quot;{department.name}&quot; will appear here.
+                  Candidates allocated or enrolled under &quot;{department.name}&quot; will appear here.
                 </p>
               </div>
             )}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   assignCandidatesToScheduleAction,
@@ -11,10 +10,13 @@ import {
   removeCandidateAssignmentAction,
   resetCandidateAttemptAction,
   createStudentAction,
+  bulkCreateStudentsAction,
 } from "@/app/actions/students";
 import {
+  BulkUploadModal,
+} from "@/components/shared/bulk-upload-modal";
+import {
   GraduationCap,
-  Users,
   Calendar,
   Building2,
   Search,
@@ -23,18 +25,19 @@ import {
   X,
   PlusCircle,
   Clock,
-  ShieldCheck,
   Printer,
-  ChevronRight,
-  Filter,
   CheckSquare,
   Square,
   RefreshCw,
   Trash2,
-  UserPlus,
-  ArrowRight,
   BookOpen,
-  Edit3,
+  Edit2,
+  Upload,
+  MonitorOff,
+  ExternalLink,
+  ShieldAlert,
+  AlertOctagon,
+  AlertTriangle,
 } from "lucide-react";
 
 export interface CandidateAssignment {
@@ -48,6 +51,17 @@ export interface CandidateAssignment {
   assignedAt: string;
   startedAt?: string | null;
   submittedAt?: string | null;
+  riskScore?: number;
+  fullscreenExits?: number;
+  tabSwitches?: number;
+  totalFlags?: number;
+  flags?: Array<{
+    type: string;
+    message?: string;
+    timestamp: string;
+    reason?: string;
+    issuedBy?: string;
+  }>;
 }
 
 export interface StudentItem {
@@ -111,6 +125,7 @@ export function StudentsClient({
   const [isBulkExamModalOpen, setIsBulkExamModalOpen] = useState(false);
   const [isBulkDeptModalOpen, setIsBulkDeptModalOpen] = useState(false);
   const [isDeptEnrollModalOpen, setIsDeptEnrollModalOpen] = useState(false);
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [reassignCandidate, setReassignCandidate] = useState<StudentItem | null>(null);
   const [hallTicketStudent, setHallTicketStudent] = useState<StudentItem | null>(null);
   const [detailStudent, setDetailStudent] = useState<StudentItem | null>(null);
@@ -135,18 +150,16 @@ export function StudentsClient({
       matchesStatus = s.assignments.some((a) => a.status === "started");
     } else if (statusFilter === "submitted") {
       matchesStatus = s.assignments.some((a) => a.status === "submitted" || a.status === "graded");
+    } else if (statusFilter === "surveillance_flagged") {
+      matchesStatus = s.assignments.some((a) => (a.totalFlags || 0) > 0 || (a.riskScore || 0) > 0);
+    } else if (statusFilter === "fullscreen_violators") {
+      matchesStatus = s.assignments.some((a) => (a.fullscreenExits || 0) > 0);
+    } else if (statusFilter === "tab_switchers") {
+      matchesStatus = s.assignments.some((a) => (a.tabSwitches || 0) > 0);
     }
 
     return matchesSearch && matchesDept && matchesStatus;
   });
-
-  // Metrics
-  const totalStudents = students.length;
-  const assignedCount = students.filter((s) => s.assignments.length > 0).length;
-  const unassignedCount = students.filter((s) => s.assignments.length === 0).length;
-  const completedCount = students.filter((s) =>
-    s.assignments.some((a) => a.status === "submitted" || a.status === "graded")
-  ).length;
 
   // Selection toggles
   function toggleSelectAll() {
@@ -376,96 +389,10 @@ export function StudentsClient({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
-              Entrance Candidate Management
-            </span>
-          </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1.5">
-            Students & Exam Allocations
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Manage registered entrance applicants, assign examination delivery slots, and reassign academic programs.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={() => {
-              setIsDeptEnrollModalOpen(true);
-              setErrorMessage(null);
-              setSuccessMessage(null);
-            }}
-            className="px-3.5 py-2 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Building2 className="w-4 h-4 text-purple-700" />
-            <span>1-Click Dept Enrollment</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setIsAddModalOpen(true);
-              setErrorMessage(null);
-              setSuccessMessage(null);
-            }}
-            className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Enroll New Student</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-100">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 font-medium block">Total Registered</span>
-            <span className="text-xl font-extrabold text-slate-900">{totalStudents}</span>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 border border-indigo-100">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 font-medium block">Assigned to Exam</span>
-            <span className="text-xl font-extrabold text-slate-900">{assignedCount}</span>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-100">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 font-medium block">Pending Allocation</span>
-            <span className="text-xl font-extrabold text-slate-900">{unassignedCount}</span>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-xs text-slate-500 font-medium block">Submitted / Graded</span>
-            <span className="text-xl font-extrabold text-slate-900">{completedCount}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Alerts */}
+    <div className="space-y-4 max-w-full">
+      {/* Notifications */}
       {successMessage && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between gap-2 animate-in fade-in">
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between shadow-2xs animate-in fade-in">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{successMessage}</span>
@@ -477,7 +404,7 @@ export function StudentsClient({
       )}
 
       {errorMessage && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-medium flex items-center justify-between gap-2 animate-in fade-in">
+        <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-semibold flex items-center justify-between shadow-2xs animate-in fade-in">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
             <span>{errorMessage}</span>
@@ -488,105 +415,148 @@ export function StudentsClient({
         </div>
       )}
 
-      {/* Filter and Bulk Action Toolbar */}
-      <div className="space-y-3">
-        {/* Search & Filter Bar */}
-        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center gap-3">
-          <div className="flex items-center gap-2 flex-1 w-full">
-            <Search className="w-4 h-4 text-slate-400 ml-2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search students by full name, email, or candidate ID..."
-              className="w-full text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="text-slate-400 hover:text-slate-600 text-xs pr-2"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {/* Department Filter */}
-            <select
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-800 font-medium"
+      {/* Search & Actions Toolbar Container */}
+      <div className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        {/* Inner Search Input */}
+        <div className="flex-1 bg-slate-50/70 border border-slate-200/80 rounded-lg px-3 py-2 flex items-center gap-2 focus-within:bg-white focus-within:ring-2 focus-within:ring-purple-600 focus-within:border-transparent transition-all">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search candidates by full name, email, or candidate ID..."
+            className="w-full text-xs text-slate-900 placeholder-slate-400 focus:outline-none bg-transparent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="text-slate-400 hover:text-slate-600 text-xs font-medium"
             >
-              <option value="all">All Departments ({availableDepartments.length})</option>
-              {availableDepartments.map((d) => (
-                <option key={d.id} value={d.name}>
-                  {d.name} {d.code ? `(${d.code})` : ""}
-                </option>
-              ))}
-            </select>
-
-            {/* Exam Assignment Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-800 font-medium"
-            >
-              <option value="all">All Exam Allocations</option>
-              <option value="assigned">Assigned to Session</option>
-              <option value="unassigned">Pending (Unassigned)</option>
-              <option value="started">In Progress</option>
-              <option value="submitted">Submitted / Completed</option>
-            </select>
-          </div>
+              Clear
+            </button>
+          )}
         </div>
 
-        {/* Bulk Action Bar (Visible when candidates are selected) */}
-        {selectedIds.length > 0 && (
-          <div className="bg-purple-900 text-white p-3 rounded-2xl shadow-md flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-150">
-            <div className="flex items-center gap-3">
-              <span className="px-2.5 py-0.5 rounded-full bg-purple-700 font-mono font-extrabold text-xs">
-                {selectedIds.length} Selected
-              </span>
-              <span className="text-xs text-purple-200">
-                Bulk action on selected entrance candidates:
-              </span>
-            </div>
+        {/* Filters & Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Department Filter */}
+          <select
+            value={departmentFilter}
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className="px-2.5 py-2 text-xs rounded-lg border border-slate-200/80 bg-slate-50/70 focus:bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all"
+          >
+            <option value="all">All Departments ({availableDepartments.length})</option>
+            {availableDepartments.map((d) => (
+              <option key={d.id} value={d.name}>
+                {d.name} {d.code ? `(${d.code})` : ""}
+              </option>
+            ))}
+          </select>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsBulkExamModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 font-bold text-xs text-white shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Assign to Exam Session</span>
-              </button>
+          {/* Allocation & Surveillance Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-2.5 py-2 text-xs rounded-lg border border-slate-200/80 bg-slate-50/70 focus:bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-purple-600 transition-all"
+          >
+            <option value="all">All Allocations</option>
+            <option value="assigned">Assigned</option>
+            <option value="unassigned">Pending (Unassigned)</option>
+            <option value="started">In Progress</option>
+            <option value="submitted">Submitted / Completed</option>
+            <option value="surveillance_flagged">Surveillance Flagged</option>
+            <option value="fullscreen_violators">Fullscreen Exits</option>
+            <option value="tab_switchers">Tab Switches</option>
+          </select>
 
-              <button
-                onClick={() => setIsBulkDeptModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-white shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Move to Department</span>
-              </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsBulkImportModalOpen(true);
+              setErrorMessage(null);
+              setSuccessMessage(null);
+            }}
+            className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
+          >
+            <Upload className="w-3.5 h-3.5 text-purple-700" />
+            <span>Bulk CSV Import</span>
+          </button>
 
-              <button
-                onClick={() => setSelectedIds([])}
-                className="px-2.5 py-1.5 rounded-xl border border-purple-700 hover:bg-purple-800 font-semibold text-xs text-purple-300 transition-colors cursor-pointer"
-              >
-                Deselect
-              </button>
-            </div>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={() => {
+              setIsDeptEnrollModalOpen(true);
+              setErrorMessage(null);
+              setSuccessMessage(null);
+            }}
+            className="px-3.5 py-2 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800 font-semibold text-xs shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all"
+          >
+            <Building2 className="w-3.5 h-3.5 text-purple-700" />
+            <span>Enroll Dept</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setIsAddModalOpen(true);
+              setErrorMessage(null);
+              setSuccessMessage(null);
+            }}
+            className="px-3.5 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white font-semibold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Add Candidate</span>
+          </button>
+        </div>
       </div>
 
-      {/* Candidate Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+      {/* Bulk Action Bar (Visible when candidates are selected) */}
+      {selectedIds.length > 0 && (
+        <div className="bg-purple-900 text-white p-2.5 rounded-xl shadow-md flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2.5">
+            <span className="px-2.5 py-0.5 rounded-full bg-purple-700 font-mono font-extrabold text-xs">
+              {selectedIds.length} Selected
+            </span>
+            <span className="text-xs text-purple-200 font-medium">
+              Actions for selected candidates:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBulkExamModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 font-semibold text-xs text-white shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Assign Exam Session</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsBulkDeptModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 font-semibold text-xs text-white shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Move Department</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="px-2.5 py-1.5 rounded-lg border border-purple-700 hover:bg-purple-800 font-semibold text-xs text-purple-300 transition-colors cursor-pointer"
+            >
+              Deselect
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Candidates Roster Table */}
+      <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-2xs">
         {filteredStudents.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-bold text-[10px] tracking-wider">
+              <thead className="bg-slate-50/80 border-b border-slate-200/80 text-slate-700 uppercase font-semibold text-[10px] tracking-wider">
                 <tr>
                   <th className="py-3 px-4 w-10">
                     <button
@@ -602,7 +572,7 @@ export function StudentsClient({
                       )}
                     </button>
                   </th>
-                  <th className="py-3 px-4">Student Candidate</th>
+                  <th className="py-3 px-4">Candidate Profile</th>
                   <th className="py-3 px-4">Department / Program</th>
                   <th className="py-3 px-4">Allocated Exam Session</th>
                   <th className="py-3 px-4 text-center">Status</th>
@@ -625,7 +595,7 @@ export function StudentsClient({
                         <button
                           type="button"
                           onClick={() => toggleSelectOne(s.id)}
-                          className="p-1 text-slate-400 hover:text-purple-700 transition-colors"
+                          className="p-1 text-slate-400 hover:text-purple-700 transition-colors cursor-pointer"
                         >
                           {isChecked ? (
                             <CheckSquare className="w-4 h-4 text-purple-700" />
@@ -637,27 +607,33 @@ export function StudentsClient({
 
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs shrink-0 border border-purple-100">
                             {s.fullName.slice(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <span className="font-bold text-slate-900 block">{s.fullName}</span>
-                            <span className="text-[11px] text-slate-500 font-mono">{s.email}</span>
+                            <button
+                              type="button"
+                              onClick={() => setDetailStudent(s)}
+                              className="font-bold text-slate-900 hover:text-purple-700 transition-colors text-left block"
+                            >
+                              {s.fullName}
+                            </button>
+                            <span className="text-[11px] text-slate-400 font-mono block mt-0.5">{s.email}</span>
                           </div>
                         </div>
                       </td>
 
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-slate-800 line-clamp-1 max-w-[200px]">
+                          <span className="font-semibold text-slate-800 line-clamp-1 max-w-[200px]">
                             {s.department || "General"}
                           </span>
                           <button
                             onClick={() => setReassignCandidate(s)}
                             title="Change Department"
-                            className="p-1 text-slate-400 hover:text-purple-700 rounded transition-colors"
+                            className="p-1 text-slate-400 hover:text-purple-700 rounded-md transition-colors"
                           >
-                            <Edit3 className="w-3 h-3" />
+                            <Edit2 className="w-3 h-3" />
                           </button>
                         </div>
                       </td>
@@ -668,7 +644,7 @@ export function StudentsClient({
                             <span className="font-bold text-slate-900 block text-xs">
                               {activeAssignment.examTitle}
                             </span>
-                            <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                            <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                               <Clock className="w-3 h-3 text-slate-400" />
                               {new Date(activeAssignment.startAt).toLocaleString([], {
                                 month: "short",
@@ -680,7 +656,7 @@ export function StudentsClient({
                             </span>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-500">
                             Not Allocated
                           </span>
                         )}
@@ -688,21 +664,48 @@ export function StudentsClient({
 
                       <td className="py-3.5 px-4 text-center">
                         {activeAssignment ? (
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border capitalize ${
-                              activeAssignment.status === "assigned"
-                                ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                                : activeAssignment.status === "started"
-                                ? "bg-amber-50 border-amber-200 text-amber-700"
-                                : activeAssignment.status === "submitted" || activeAssignment.status === "graded"
-                                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                : "bg-slate-100 border-slate-200 text-slate-700"
-                            }`}
-                          >
-                            {activeAssignment.status}
-                          </span>
+                          <div>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-extrabold border capitalize ${
+                                activeAssignment.status === "assigned"
+                                  ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                                  : activeAssignment.status === "started"
+                                  ? "bg-amber-50 border-amber-200 text-amber-700"
+                                  : activeAssignment.status === "submitted" || activeAssignment.status === "graded"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                  : "bg-slate-100 border-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {activeAssignment.status}
+                            </span>
+
+                            {/* Granular Separate Flag Badges */}
+                            {((activeAssignment.fullscreenExits || 0) > 0 || (activeAssignment.tabSwitches || 0) > 0) && (
+                              <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
+                                {(activeAssignment.fullscreenExits || 0) > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                                    title={`Candidate exited fullscreen perimeter ${activeAssignment.fullscreenExits} time(s)`}
+                                  >
+                                    <MonitorOff className="w-2.5 h-2.5" />
+                                    <span>{activeAssignment.fullscreenExits} FS</span>
+                                  </span>
+                                )}
+
+                                {(activeAssignment.tabSwitches || 0) > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200"
+                                    title={`Candidate switched tabs / blurred window ${activeAssignment.tabSwitches} time(s)`}
+                                  >
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                    <span>{activeAssignment.tabSwitches} Tab</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">
                             Pending
                           </span>
                         )}
@@ -711,16 +714,18 @@ export function StudentsClient({
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            type="button"
                             onClick={() => setDetailStudent(s)}
-                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 font-semibold text-xs transition-colors"
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 font-semibold text-xs transition-colors"
                           >
-                            Detail
+                            Detail ↗
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => setHallTicketStudent(s)}
-                            title="View Hall Ticket"
-                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 transition-colors"
+                            title="View / Print Hall Ticket"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-colors"
                           >
                             <Printer className="w-3.5 h-3.5" />
                           </button>
@@ -733,18 +738,18 @@ export function StudentsClient({
             </table>
           </div>
         ) : (
-          <div className="p-12 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto mb-3 border border-purple-100">
-              <GraduationCap className="w-6 h-6" />
+          <div className="p-10 text-center text-xs text-slate-500">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center mx-auto mb-2 border border-purple-100">
+              <GraduationCap className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900">
-              {searchQuery ? "No matching students found" : "No Registered Students in Database"}
-            </h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+            <div className="font-bold text-slate-800">
+              {searchQuery ? "No matching candidates found" : "No Registered Candidates Found"}
+            </div>
+            <div className="text-slate-400 mt-0.5">
               {searchQuery
                 ? `No candidates match "${searchQuery}". Clear your search query to see all candidates.`
-                : "Candidates can self-enroll on the public admission portal, or you can register them directly with the button above."}
-            </p>
+                : "Upload candidates via CSV or enroll candidates individually using the toolbar above."}
+            </div>
           </div>
         )}
       </div>
@@ -752,7 +757,7 @@ export function StudentsClient({
       {/* MODAL 1: Bulk Assign to Exam Schedule */}
       {isBulkExamModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <Calendar className="w-4 h-4 text-purple-700" />
@@ -772,17 +777,17 @@ export function StudentsClient({
                 const formData = new FormData(e.currentTarget);
                 handleBulkAssignExam(formData.get("scheduleId") as string);
               }}
-              className="space-y-4 pt-4"
+              className="space-y-4 pt-4 text-xs"
             >
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Target Exam Delivery Session *
                 </label>
                 <select
                   name="scheduleId"
                   required
                   defaultValue=""
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                 >
                   <option value="" disabled>
                     Select an active examination session...
@@ -795,7 +800,7 @@ export function StudentsClient({
                 </select>
               </div>
 
-              <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-100 text-xs text-purple-900 space-y-1">
+              <div className="p-3 rounded-lg bg-purple-50/70 border border-purple-100 text-xs text-purple-900 space-y-1">
                 <div className="font-bold">Automatic Duplicate Prevention</div>
                 <div className="text-[11px] text-purple-700">
                   Any candidate already assigned to this session will be safely preserved without creating duplicates.
@@ -813,7 +818,7 @@ export function StudentsClient({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? "Allocating..." : "Confirm Allocation"}
                 </button>
@@ -826,7 +831,7 @@ export function StudentsClient({
       {/* MODAL 2: 1-Click Department-Wide Exam Enrollment */}
       {isDeptEnrollModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <Building2 className="w-4 h-4 text-purple-700" />
@@ -849,17 +854,17 @@ export function StudentsClient({
                   formData.get("scheduleId") as string
                 );
               }}
-              className="space-y-4 pt-4"
+              className="space-y-4 pt-4 text-xs"
             >
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Academic Department Cohort *
                 </label>
                 <select
                   name="departmentName"
                   required
                   defaultValue=""
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                 >
                   <option value="" disabled>
                     Select Department to enroll...
@@ -873,14 +878,14 @@ export function StudentsClient({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Examination Delivery Session *
                 </label>
                 <select
                   name="scheduleId"
                   required
                   defaultValue=""
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                 >
                   <option value="" disabled>
                     Select Exam Schedule Session...
@@ -893,7 +898,7 @@ export function StudentsClient({
                 </select>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
                 All candidates enrolled in the chosen department will be linked to this entrance session immediately.
               </div>
 
@@ -908,7 +913,7 @@ export function StudentsClient({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? "Enrolling..." : "Enroll Whole Department"}
                 </button>
@@ -921,7 +926,7 @@ export function StudentsClient({
       {/* MODAL 3: Bulk Move to Department */}
       {isBulkDeptModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <Building2 className="w-4 h-4 text-indigo-700" />
@@ -941,17 +946,17 @@ export function StudentsClient({
                 const formData = new FormData(e.currentTarget);
                 handleBulkMoveDepartment(formData.get("department") as string);
               }}
-              className="space-y-4 pt-4"
+              className="space-y-4 pt-4 text-xs"
             >
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Destination Department *
                 </label>
                 <select
                   name="department"
                   required
                   defaultValue=""
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600 text-slate-900"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600 text-slate-900 font-medium"
                 >
                   <option value="" disabled>
                     Select destination department...
@@ -975,7 +980,7 @@ export function StudentsClient({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? "Moving..." : "Reassign Department"}
                 </button>
@@ -988,7 +993,7 @@ export function StudentsClient({
       {/* MODAL 4: Single Reassign Department */}
       {reassignCandidate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <Building2 className="w-4 h-4 text-purple-700" />
@@ -1002,16 +1007,16 @@ export function StudentsClient({
               </button>
             </div>
 
-            <form onSubmit={handleSingleReassignDepartment} className="space-y-4 pt-4">
+            <form onSubmit={handleSingleReassignDepartment} className="space-y-4 pt-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Current Department: <span className="text-slate-500 font-normal">{reassignCandidate.department}</span>
                 </label>
                 <select
                   name="department"
                   required
                   defaultValue={reassignCandidate.department}
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                 >
                   {availableDepartments.map((d) => (
                     <option key={d.id} value={d.name}>
@@ -1032,7 +1037,7 @@ export function StudentsClient({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? "Saving..." : "Update Department"}
                 </button>
@@ -1045,15 +1050,15 @@ export function StudentsClient({
       {/* MODAL 5: Student Deep-Dive Detail Drawer */}
       {detailStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-2xl p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-full max-w-2xl p-6 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-100 font-bold text-sm">
+                <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-100 font-bold text-xs">
                   {detailStudent.fullName.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">{detailStudent.fullName}</h3>
-                  <span className="text-xs text-slate-500">{detailStudent.email}</span>
+                  <h3 className="text-sm font-extrabold text-slate-900">{detailStudent.fullName}</h3>
+                  <span className="text-[11px] text-slate-400 font-mono">{detailStudent.email}</span>
                 </div>
               </div>
               <button
@@ -1064,26 +1069,26 @@ export function StudentsClient({
               </button>
             </div>
 
-            <div className="space-y-6 pt-4">
+            <div className="space-y-5 pt-4 text-xs">
               {/* Profile Details Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50/70 p-3.5 rounded-lg border border-slate-200/80">
                 <div>
-                  <span className="text-slate-400 block font-medium">Department</span>
+                  <span className="text-slate-400 block text-[11px] font-medium">Department</span>
                   <span className="font-bold text-slate-800">{detailStudent.department}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block font-medium">Candidate ID</span>
-                  <span className="font-mono text-slate-800">{detailStudent.id.slice(0, 12)}...</span>
+                  <span className="text-slate-400 block text-[11px] font-medium">Candidate ID</span>
+                  <span className="font-mono text-slate-800 text-[11px]">{detailStudent.id.slice(0, 12)}...</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block font-medium">Enrolled Date</span>
+                  <span className="text-slate-400 block text-[11px] font-medium">Enrolled Date</span>
                   <span className="text-slate-800">{new Date(detailStudent.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
 
               {/* Exam Allocation List */}
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-2.5">
                   <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     <BookOpen className="w-4 h-4 text-purple-700" />
                     <span>Allocated Examination Sessions ({detailStudent.assignments.length})</span>
@@ -1091,70 +1096,115 @@ export function StudentsClient({
                 </div>
 
                 {detailStudent.assignments.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {detailStudent.assignments.map((assignment) => (
                       <div
                         key={assignment.id}
-                        className="p-4 rounded-xl border border-slate-200 bg-white hover:border-purple-200 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+                        className="p-3.5 rounded-lg border border-slate-200/80 bg-white hover:border-purple-200 transition-colors space-y-3 shadow-2xs"
                       >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 text-xs">
-                              {assignment.examTitle}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${
-                                assignment.status === "assigned"
-                                  ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                                  : assignment.status === "started"
-                                  ? "bg-amber-50 border-amber-200 text-amber-700"
-                                  : "bg-emerald-50 border-emerald-200 text-emerald-700"
-                              }`}
-                            >
-                              {assignment.status}
-                            </span>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 text-xs">
+                                {assignment.examTitle}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-extrabold border capitalize ${
+                                  assignment.status === "assigned"
+                                    ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                                    : assignment.status === "started"
+                                    ? "bg-amber-50 border-amber-200 text-amber-700"
+                                    : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                }`}
+                              >
+                                {assignment.status}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 flex items-center gap-2.5 mt-1">
+                              <span>
+                                Window: {new Date(assignment.startAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                              <span>•</span>
+                              <span>Duration: {assignment.durationMinutes}m</span>
+                              <span>•</span>
+                              <span className="capitalize">{assignment.proctoringLevel} Proctoring</span>
+                            </div>
                           </div>
-                          <div className="text-[11px] text-slate-500 flex items-center gap-3 mt-1">
-                            <span>
-                              Window: {new Date(assignment.startAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                            <span>•</span>
-                            <span>Duration: {assignment.durationMinutes}m</span>
-                            <span>•</span>
-                            <span className="capitalize">{assignment.proctoringLevel} Proctoring</span>
+
+                          <div className="flex items-center gap-2 self-end sm:self-center">
+                            {assignment.status === "started" && (
+                              <button
+                                onClick={() => handleResetAttempt(assignment.id, detailStudent.id)}
+                                disabled={isSubmitting}
+                                title="Reset Interrupted Attempt"
+                                className="px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 font-semibold text-xs flex items-center gap-1 cursor-pointer"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                <span>Reset Attempt</span>
+                              </button>
+                            )}
+
+                            {assignment.status === "assigned" && (
+                              <button
+                                onClick={() => handleRemoveAssignment(assignment.id, detailStudent.id)}
+                                disabled={isSubmitting}
+                                title="Remove Assignment"
+                                className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 self-end sm:self-center">
-                          {assignment.status === "started" && (
-                            <button
-                              onClick={() => handleResetAttempt(assignment.id, detailStudent.id)}
-                              disabled={isSubmitting}
-                              title="Reset Interrupted Attempt"
-                              className="px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 font-semibold text-xs flex items-center gap-1 cursor-pointer"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              <span>Reset Attempt</span>
-                            </button>
-                          )}
+                        {/* Separate Surveillance & Anti-Cheat Summary Block */}
+                        {((assignment.fullscreenExits || 0) > 0 || (assignment.tabSwitches || 0) > 0 || (assignment.riskScore || 0) > 0) && (
+                          <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                              <span className="flex items-center gap-1">
+                                <ShieldAlert className="w-3.5 h-3.5 text-purple-700" />
+                                <span>Surveillance Incident Telemetry</span>
+                              </span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                                (assignment.riskScore || 0) >= 60
+                                  ? "bg-rose-100 text-rose-800 border border-rose-200"
+                                  : (assignment.riskScore || 0) >= 30
+                                  ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                  : "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              }`}>
+                                Risk: {assignment.riskScore || 0}%
+                              </span>
+                            </div>
 
-                          {assignment.status === "assigned" && (
-                            <button
-                              onClick={() => handleRemoveAssignment(assignment.id, detailStudent.id)}
-                              disabled={isSubmitting}
-                              title="Remove Assignment"
-                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                              <div className="p-2 rounded-lg bg-white border border-rose-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-rose-900 font-semibold text-[11px]">
+                                  <MonitorOff className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>Fullscreen Exits</span>
+                                </span>
+                                <span className="font-extrabold text-rose-700 text-xs">
+                                  {assignment.fullscreenExits || 0}
+                                </span>
+                              </div>
+
+                              <div className="p-2 rounded-lg bg-white border border-amber-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-amber-900 font-semibold text-[11px]">
+                                  <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>Tab / Focus Switches</span>
+                                </span>
+                                <span className="font-extrabold text-amber-700 text-xs">
+                                  {assignment.tabSwitches || 0}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-6 text-center border border-dashed border-slate-200 rounded-xl">
-                    <p className="text-xs text-slate-500">
+                  <div className="p-6 text-center border border-dashed border-slate-200 rounded-lg">
+                    <p className="text-xs text-slate-400">
                       No examinations currently allocated to this candidate.
                     </p>
                   </div>
@@ -1162,11 +1212,11 @@ export function StudentsClient({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 mt-6">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 mt-5">
               <button
                 type="button"
                 onClick={() => setDetailStudent(null)}
-                className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 cursor-pointer"
               >
                 Close
               </button>
@@ -1178,23 +1228,23 @@ export function StudentsClient({
       {/* MODAL 6: Hall Ticket / Admit Card Preview */}
       {hallTicketStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-300 rounded-2xl shadow-2xl w-full max-w-xl p-6 sm:p-8 animate-in zoom-in-95 duration-150">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-2xl w-full max-w-xl p-6 sm:p-7 animate-in zoom-in-95 duration-150">
             {/* Printable Hall Ticket Pass */}
-            <div className="border-2 border-slate-900 rounded-xl p-6 relative overflow-hidden bg-white text-slate-900">
-              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4 mb-4">
+            <div className="border-2 border-slate-900 rounded-xl p-5 relative overflow-hidden bg-white text-slate-900">
+              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3 mb-4">
                 <div>
                   <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
                     Official Examination Admit Pass
                   </div>
-                  <h2 className="text-lg font-extrabold tracking-tight mt-0.5">{universityName}</h2>
+                  <h2 className="text-base font-extrabold tracking-tight mt-0.5">{universityName}</h2>
                   <div className="text-xs text-slate-600">Entrance & Research Examination Board</div>
                 </div>
-                <div className="w-12 h-12 rounded-xl border border-slate-900 flex items-center justify-center font-extrabold text-xs font-mono">
+                <div className="w-10 h-10 rounded-lg border border-slate-900 flex items-center justify-center font-extrabold text-xs font-mono">
                   PASS
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-xs mb-6">
+              <div className="grid grid-cols-2 gap-3 text-xs mb-5">
                 <div>
                   <span className="text-slate-500 block text-[10px] uppercase font-bold">Candidate Full Name</span>
                   <span className="font-extrabold text-slate-900 text-sm">{hallTicketStudent.fullName}</span>
@@ -1215,13 +1265,13 @@ export function StudentsClient({
                 </div>
               </div>
 
-              <div className="border-t border-dashed border-slate-300 pt-4 mb-4">
+              <div className="border-t border-dashed border-slate-300 pt-3 mb-3">
                 <span className="text-[10px] font-extrabold uppercase text-slate-500 block mb-2">
                   Allocated Examination Sessions
                 </span>
                 {hallTicketStudent.assignments.length > 0 ? (
                   hallTicketStudent.assignments.map((a) => (
-                    <div key={a.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs mb-2">
+                    <div key={a.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs mb-2">
                       <div className="font-bold text-slate-900">{a.examTitle}</div>
                       <div className="text-[11px] text-slate-600 mt-0.5">
                         Slot: {new Date(a.startAt).toLocaleString()} ({a.durationMinutes} Minutes)
@@ -1233,26 +1283,26 @@ export function StudentsClient({
                 )}
               </div>
 
-              <div className="border-t border-slate-200 pt-3 text-[10px] text-slate-500 flex items-center justify-between">
+              <div className="border-t border-slate-200 pt-2.5 text-[10px] text-slate-500 flex items-center justify-between">
                 <span>SafeExam Pro Lockdown Browser Protocol Required</span>
-                <span className="font-mono">VALIDATED</span>
+                <span className="font-mono font-bold">VALIDATED</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 mt-2">
+            <div className="flex items-center justify-between pt-4 mt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
-                <Printer className="w-3.5 h-3.5" />
+                <Printer className="w-3.5 h-3.5 text-purple-700" />
                 <span>Print Admit Card</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setHallTicketStudent(null)}
-                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer"
               >
                 Close
               </button>
@@ -1261,14 +1311,14 @@ export function StudentsClient({
         </div>
       )}
 
-      {/* MODAL 7: Direct Student Creation */}
+      {/* MODAL 7: Direct Candidate Creation */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xl w-full max-w-lg p-6 animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-full max-w-lg p-6 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <UserPlus className="w-4 h-4 text-purple-700" />
-                <span>Enroll Candidate Directly</span>
+                <PlusCircle className="w-4 h-4 text-purple-700" />
+                <span>Add Entrance Candidate</span>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -1278,9 +1328,9 @@ export function StudentsClient({
               </button>
             </div>
 
-            <form onSubmit={handleCreateStudent} className="space-y-4 pt-4">
+            <form onSubmit={handleCreateStudent} className="space-y-4 pt-4 text-xs">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Full Legal Name *
                 </label>
                 <input
@@ -1288,13 +1338,13 @@ export function StudentsClient({
                   name="fullName"
                   required
                   placeholder="e.g. Jonathan Edwards"
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Candidate Email Address *
                   </label>
                   <input
@@ -1302,13 +1352,13 @@ export function StudentsClient({
                     name="email"
                     required
                     placeholder="jonathan@student.edu"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Initial Access Password *
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Initial Password *
                   </label>
                   <input
                     type="password"
@@ -1316,21 +1366,21 @@ export function StudentsClient({
                     required
                     minLength={8}
                     placeholder="Min 8 characters"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Academic Department *
                   </label>
                   <select
                     name="department"
                     required
                     defaultValue=""
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                   >
                     <option value="" disabled>
                       Select Department...
@@ -1344,26 +1394,26 @@ export function StudentsClient({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Contact Phone (Optional)
                   </label>
                   <input
                     type="tel"
                     name="phone"
                     placeholder="+1 (555) 000-0000"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Immediate Exam Session Allocation (Optional)
                 </label>
                 <select
                   name="scheduleId"
                   defaultValue=""
-                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-600 text-slate-900 font-medium"
                 >
                   <option value="">Do not allocate immediately (Leave unassigned)</option>
                   {availableSchedules.map((sch) => (
@@ -1385,7 +1435,7 @@ export function StudentsClient({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? "Creating..." : "Save & Enroll Candidate"}
                 </button>
@@ -1394,6 +1444,67 @@ export function StudentsClient({
           </div>
         </div>
       )}
+
+      {/* Bulk Candidate CSV Import Modal */}
+      <BulkUploadModal
+        isOpen={isBulkImportModalOpen}
+        onClose={() => setIsBulkImportModalOpen(false)}
+        title="Bulk Import Candidates"
+        entityName="Candidates"
+        description="Upload a CSV spreadsheet to onboard entrance examinees and assign programs in bulk."
+        templateFileName="candidates_bulk_import_template.csv"
+        columns={[
+          { key: "fullName", label: "Full Name", sample: "Aarav Sharma", required: true },
+          { key: "email", label: "Email Address", sample: "aarav.sharma@klu.ac.in", required: true },
+          { key: "department", label: "Department / Program", sample: "MCA", required: true },
+          { key: "phone", label: "Phone Number", sample: "+91 98765 43210", required: false },
+          { key: "registrationNo", label: "Registration No", sample: "KLU2026-MCA-001", required: false },
+          { key: "password", label: "Default Password", sample: "Candidate@2026", required: false },
+        ]}
+        validateRow={(row) => {
+          const errors: string[] = [];
+          const fullName = row.fullName?.trim() || "";
+          const email = row.email?.trim() || "";
+          const department = row.department?.trim() || "";
+
+          if (!fullName || fullName.length < 2) {
+            errors.push("Full Name must be at least 2 characters");
+          }
+          if (!email || !email.includes("@") || !email.includes(".")) {
+            errors.push("Valid email address is required");
+          }
+          if (!department || department.length < 2) {
+            errors.push("Department or discipline code is required");
+          }
+
+          return {
+            isValid: errors.length === 0,
+            errors,
+            parsed: errors.length === 0 ? {
+              fullName,
+              email,
+              department,
+              phone: row.phone?.trim() || undefined,
+              registrationNo: row.registrationNo?.trim() || undefined,
+              password: row.password?.trim() || undefined,
+            } : undefined,
+          };
+        }}
+        onExecuteImport={async (validItems, strategy) => {
+          const res = await bulkCreateStudentsAction(validItems, strategy);
+          return {
+            success: res.success,
+            error: res.error,
+            data: res.data,
+          };
+        }}
+        onSuccess={(result) => {
+          setSuccessMessage(
+            `Bulk import complete: ${result.createdCount} candidate(s) created, ${result.skippedCount} skipped, ${result.failedCount} failed.`
+          );
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

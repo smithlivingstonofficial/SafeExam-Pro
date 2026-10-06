@@ -37,6 +37,11 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  if (pathname === "/register") {
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
   const isProtectedPath =
     pathname.startsWith("/admin") ||
     pathname.startsWith("/examiner") ||
@@ -45,7 +50,6 @@ export async function updateSession(request: NextRequest) {
 
   const isAuthPath =
     pathname === "/login" ||
-    pathname === "/register" ||
     pathname === "/forgot-password";
 
   // Unauthenticated user trying to access protected route -> redirect to /login

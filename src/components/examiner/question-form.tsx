@@ -291,13 +291,23 @@ export function QuestionForm({
               <span>Academic Applicability & Department Criteria</span>
             </h2>
             <span
-              className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+              className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1.5 ${
                 isCommon
                   ? "bg-indigo-50 border-indigo-200 text-indigo-700"
                   : "bg-purple-50 border-purple-200 text-purple-700"
               }`}
             >
-              {isCommon ? "🌐 Universal Common" : "🏛️ Department Specific"}
+              {isCommon ? (
+                <>
+                  <Globe className="w-3 h-3" />
+                  <span>Universal Common</span>
+                </>
+              ) : (
+                <>
+                  <Building2 className="w-3 h-3" />
+                  <span>Department Specific</span>
+                </>
+              )}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
