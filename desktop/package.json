@@ -4,13 +4,18 @@
   "description": "SafeExam Pro — Secure Lockdown Desktop Examination Client",
   "main": "dist/main/index.js",
   "scripts": {
-    "compile-hook": "powershell -Command \"Stop-Process -Name 'safeexam-hook' -Force -ErrorAction SilentlyContinue; if (-not (Test-Path 'bin')) { New-Item -ItemType Directory -Path 'bin' -Force }; & 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe' /target:winexe /out:'bin\\safeexam-hook.exe' /platform:x64 src\\native\\SafeExamLockdownHook.cs\"",
+    "compile-hook": "node scripts/compile-hook.js",
     "build": "npm run compile-hook && tsc && node -e \"const fs=require('fs'); fs.cpSync('src/renderer', 'dist/renderer', {recursive: true});\"",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron .",
     "dist": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && electron-builder --win nsis",
     "dist:nsis": "npm run build && electron-builder --win nsis",
-    "dist:portable": "npm run build && electron-builder --win portable"
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip",
+    "dist:mac:dmg": "npm run build && electron-builder --mac dmg",
+    "dist:mac:zip": "npm run build && electron-builder --mac zip",
+    "dist:all": "npm run build && electron-builder -mw"
   },
   "build": {
     "appId": "com.safeexam.lockdown",
@@ -52,6 +57,44 @@
       "uninstallDisplayName": "SafeExam Pro Lockdown Client",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.education",
+      "icon": "build/icon.ico",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "darkModeSupport": false
+    },
+    "dmg": {
+      "title": "SafeExam Pro Installer",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
   },
   "keywords": [

@@ -1,0 +1,72 @@
+name: Build SafeExam Pro Desktop Client
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    name: Build macOS Installer (.dmg)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Desktop Dependencies
+        run: |
+          cd desktop
+          npm ci
+
+      - name: Build macOS Application (.dmg & .zip)
+        run: |
+          cd desktop
+          npm run dist:mac
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SafeExam-Pro-macOS
+          path: |
+            desktop/dist-package/*.dmg
+            desktop/dist-package/*.zip
+
+  build-windows:
+    name: Build Windows Installer (.exe)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Desktop Dependencies
+        run: |
+          cd desktop
+          npm ci
+
+      - name: Build Windows Application (.exe)
+        run: |
+          cd desktop
+          npm run dist:nsis
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SafeExam-Pro-Windows
+          path: desktop/dist-package/*.exe

@@ -7,6 +7,7 @@ import {
   screen,
   dialog,
   clipboard,
+  Menu,
 } from "electron";
 import * as path from "path";
 import * as fs from "fs";
@@ -125,6 +126,8 @@ function promptExitClient(force: boolean = false): void {
 function createMainWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
 
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: primaryDisplay.bounds.width,
     height: primaryDisplay.bounds.height,
@@ -132,6 +135,7 @@ function createMainWindow() {
     y: primaryDisplay.bounds.y,
     frame: false,
     kiosk: true,
+    simpleFullscreen: process.platform === "darwin",
     alwaysOnTop: true,
     fullscreen: true,
     minimizable: false,
@@ -149,6 +153,13 @@ function createMainWindow() {
       zoomFactor: 1.0,
     },
   });
+
+  // Enable OS-level screen capture and recording protection (macOS and Windows)
+  try {
+    mainWindow.setContentProtection(true);
+  } catch {
+    // OS level fallback
+  }
 
   // Raise to highest screen-saver level on Windows
   mainWindow.setAlwaysOnTop(true, "screen-saver");
@@ -295,6 +306,31 @@ function createMainWindow() {
 
     // If live exam is active, strictly block all switching, shortcut combinations & hotkeys
     if (isLiveExamActive) {
+      // On macOS: Block Command (Meta) shortcut combinations
+      if (input.meta) {
+        const key = input.key.toLowerCase();
+        if (
+          key === "q" ||
+          key === "w" ||
+          key === "h" ||
+          key === "m" ||
+          key === "tab" ||
+          key === " " ||
+          key === "r"
+        ) {
+          event.preventDefault();
+          return;
+        }
+        if (input.shift && ["3", "4", "5"].includes(key)) {
+          event.preventDefault();
+          return;
+        }
+        if (input.alt && (key === "escape" || key === "esc")) {
+          event.preventDefault();
+          return;
+        }
+      }
+
       // Block Escape during exam
       if (input.key === "Escape" || input.key === "Esc") {
         event.preventDefault();
@@ -502,6 +538,13 @@ app.whenReady().then(() => {
     const primary = screen.getPrimaryDisplay();
     blackoutGuard.applyBlackouts(primary.id);
   });
+});
+
+app.on("before-quit", (e) => {
+  if (isLiveExamActive) {
+    e.preventDefault();
+    console.log("Blocked app quit attempt during live exam.");
+  }
 });
 
 app.on("window-all-closed", () => {
