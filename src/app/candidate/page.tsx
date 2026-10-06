@@ -5,6 +5,7 @@ import { createDemoCandidateAssignmentAction } from "@/app/actions/exam";
 import { requireRole } from "@/lib/auth/rbac";
 import { createClient } from "@/lib/supabase/server";
 import { getUniversitySettings } from "@/lib/settings";
+import { DesktopExitButton } from "@/components/candidate/desktop-exit-button";
 import {
   ShieldCheck,
   Calendar,
@@ -107,6 +108,7 @@ export default async function CandidateDashboard() {
               <span className="text-slate-400">•</span>
               <span className="text-slate-500">{user.email}</span>
             </div>
+            <DesktopExitButton />
             <form action={logoutAction}>
               <button
                 type="submit"

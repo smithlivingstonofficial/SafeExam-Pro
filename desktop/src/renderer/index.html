@@ -100,7 +100,7 @@
         <span>Commence Examination Session</span>
       </button>
       <button id="btnExit" class="btn-secondary">
-        Exit
+        Exit Safe Browser
       </button>
     </div>
 
@@ -194,6 +194,12 @@
 
     btnExit.addEventListener("click", () => {
       window.safeExamDesktop.exitApp();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        window.safeExamDesktop.exitApp();
+      }
     });
   </script>
 </body>

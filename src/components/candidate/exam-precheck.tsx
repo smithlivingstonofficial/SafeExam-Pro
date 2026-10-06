@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { startExamSessionAction } from "@/app/actions/exam";
+import { DesktopExitButton } from "./desktop-exit-button";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -14,6 +16,7 @@ import {
   Clock,
   Lock,
   ArrowRight,
+  ArrowLeft,
   Wifi,
   Monitor,
   AlertTriangle,
@@ -206,6 +209,11 @@ export function ExamPrecheck({
   useEffect(() => {
     evaluateEnvironment();
     measureLatency();
+
+    // Notify SafeExam Desktop Client that exam is not started yet (exit is permitted)
+    if (typeof window !== "undefined" && (window as any).safeExamDesktop) {
+      (window as any).safeExamDesktop.setExamState(false);
+    }
 
     // Check battery if API available
     if (typeof navigator !== "undefined" && "getBattery" in navigator) {
@@ -614,6 +622,7 @@ export function ExamPrecheck({
           </div>
 
           <div className="flex items-center gap-3">
+            <DesktopExitButton />
             <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl shrink-0 text-right">
               <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">
                 Exam Duration
@@ -1075,6 +1084,17 @@ export function ExamPrecheck({
                   Accept the honor code pledge to proceed.
                 </p>
               )}
+
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3 text-xs">
+                <Link
+                  href="/candidate"
+                  className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-800 font-bold transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to Dashboard</span>
+                </Link>
+                <DesktopExitButton />
+              </div>
             </div>
           </div>
         </div>

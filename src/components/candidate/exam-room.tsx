@@ -176,6 +176,25 @@ export function ExamRoom({
     }
   }, [activeQuestion?.id]);
 
+  // Synchronize Live Exam state with SafeExam Desktop Client
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).safeExamDesktop) {
+      (window as any).safeExamDesktop.setExamState(true);
+    }
+    return () => {
+      if (typeof window !== "undefined" && (window as any).safeExamDesktop) {
+        (window as any).safeExamDesktop.setExamState(false);
+      }
+    };
+  }, []);
+
+  // When exam is submitted, release lockdown exit restriction immediately
+  useEffect(() => {
+    if (isSubmitted && typeof window !== "undefined" && (window as any).safeExamDesktop) {
+      (window as any).safeExamDesktop.setExamState(false);
+    }
+  }, [isSubmitted]);
+
   // Network connection state & auto sync
   const [isOnline, setIsOnline] = useState<boolean>(() =>
     typeof navigator !== "undefined" ? navigator.onLine : true
