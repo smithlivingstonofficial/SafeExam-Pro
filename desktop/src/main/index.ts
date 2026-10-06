@@ -7,6 +7,7 @@ import {
   screen,
 } from "electron";
 import * as path from "path";
+import * as fs from "fs";
 import {
   scanRunningProcesses,
   checkDisplayConfiguration,
@@ -77,8 +78,11 @@ function createMainWindow() {
     },
   });
 
-  // Load Diagnostic & Launch Screen initially
-  mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+  // Load Diagnostic & Launch Screen initially (check dist and src fallbacks)
+  const distHtmlPath = path.join(__dirname, "../renderer/index.html");
+  const srcHtmlPath = path.join(__dirname, "../../src/renderer/index.html");
+  const htmlToLoad = fs.existsSync(distHtmlPath) ? distHtmlPath : srcHtmlPath;
+  mainWindow.loadFile(htmlToLoad);
 
   // Apply secondary display blackout shields
   blackoutGuard.applyBlackouts(primaryDisplay.id);

@@ -4,10 +4,10 @@
   "description": "SafeExam Pro — Secure Lockdown Desktop Examination Client",
   "main": "dist/main/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "tsc && electron .",
-    "dev": "tsc && electron .",
-    "dist": "tsc && electron-builder"
+    "build": "tsc && node -e \"const fs=require('fs'); fs.cpSync('src/renderer', 'dist/renderer', {recursive: true});\"",
+    "start": "npm run build && electron .",
+    "dev": "npm run build && electron .",
+    "dist": "npm run build && electron-builder"
   },
   "keywords": [
     "safeexam",
