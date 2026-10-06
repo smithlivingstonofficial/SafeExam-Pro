@@ -186,12 +186,21 @@ function startPeriodicSecurityScanner() {
 // Attach attestation headers to all outgoing requests to university server
 function configureAttestationHeaders() {
   session.defaultSession.webRequest.onBeforeSendHeaders(
-    { urls: [`${SERVER_BASE_URL}/*`, "*://localhost*/*", "*://127.0.0.1*/*"] },
+    { urls: ["http://*/*", "https://*/*"] },
     (details, callback) => {
-      const attestation = generateAttestationToken();
-      details.requestHeaders["X-SafeExam-Client-Token"] = attestation.token;
-      details.requestHeaders["X-SafeExam-Hardware-Id"] = attestation.hardwareId;
-      details.requestHeaders["X-SafeExam-Client-Version"] = "1.0.0";
+      const targetUrl = details.url;
+      const isTarget =
+        targetUrl.startsWith(SERVER_BASE_URL) ||
+        targetUrl.includes("localhost") ||
+        targetUrl.includes("127.0.0.1");
+
+      if (isTarget) {
+        const attestation = generateAttestationToken();
+        details.requestHeaders["X-SafeExam-Client-Token"] = attestation.token;
+        details.requestHeaders["X-SafeExam-Hardware-Id"] = attestation.hardwareId;
+        details.requestHeaders["X-SafeExam-Client-Version"] = "1.0.0";
+      }
+
       callback({ requestHeaders: details.requestHeaders });
     }
   );
