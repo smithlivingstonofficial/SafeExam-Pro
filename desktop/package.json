@@ -4,11 +4,55 @@
   "description": "SafeExam Pro — Secure Lockdown Desktop Examination Client",
   "main": "dist/main/index.js",
   "scripts": {
-    "compile-hook": "powershell -Command \"if (-not (Test-Path 'bin')) { New-Item -ItemType Directory -Path 'bin' -Force }; & 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe' /target:winexe /out:'bin\\safeexam-hook.exe' /platform:x64 src\\native\\SafeExamLockdownHook.cs\"",
+    "compile-hook": "powershell -Command \"Stop-Process -Name 'safeexam-hook' -Force -ErrorAction SilentlyContinue; if (-not (Test-Path 'bin')) { New-Item -ItemType Directory -Path 'bin' -Force }; & 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe' /target:winexe /out:'bin\\safeexam-hook.exe' /platform:x64 src\\native\\SafeExamLockdownHook.cs\"",
     "build": "npm run compile-hook && tsc && node -e \"const fs=require('fs'); fs.cpSync('src/renderer', 'dist/renderer', {recursive: true});\"",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron .",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder --win",
+    "dist:nsis": "npm run build && electron-builder --win nsis",
+    "dist:portable": "npm run build && electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.safeexam.lockdown",
+    "productName": "SafeExam Pro",
+    "directories": {
+      "output": "dist-package"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "bin/safeexam-hook.exe",
+        "to": "bin/safeexam-hook.exe"
+      }
+    ],
+    "protocols": [
+      {
+        "name": "SafeExam Pro Protocol",
+        "schemes": [
+          "safeexam"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SafeExam Pro",
+      "uninstallDisplayName": "SafeExam Pro Lockdown Client",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
   },
   "keywords": [
     "safeexam",

@@ -16,6 +16,8 @@ export class WindowsLockdownHook {
     if (this.hookProcess) return;
 
     const possiblePaths = [
+      path.join(process.resourcesPath || "", "bin/safeexam-hook.exe"),
+      path.join(process.resourcesPath || "", "safeexam-hook.exe"),
       path.join(__dirname, "../../../bin/safeexam-hook.exe"),
       path.join(__dirname, "../../bin/safeexam-hook.exe"),
       path.join(__dirname, "../bin/safeexam-hook.exe"),

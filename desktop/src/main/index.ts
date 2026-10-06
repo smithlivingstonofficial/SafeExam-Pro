@@ -201,6 +201,15 @@ function createMainWindow() {
       targetUrl.includes("localhost") ||
       targetUrl.includes("127.0.0.1");
 
+    if (targetUrl.startsWith("safeexam://")) {
+      event.preventDefault();
+      const resolved = parseSafeExamProtocolUrl(targetUrl);
+      if (resolved && mainWindow) {
+        mainWindow.loadURL(resolved);
+      }
+      return;
+    }
+
     if (!isLocalFile && !isServerUrl) {
       event.preventDefault();
       console.warn(`Blocked unauthorized navigation to: ${targetUrl}`);
@@ -530,6 +539,10 @@ ipcMain.handle("launch-exam", async (_event, examUrl: string) => {
   if (!mainWindow) return false;
 
   let target = examUrl.trim();
+  if (target.startsWith("safeexam://")) {
+    const parsed = parseSafeExamProtocolUrl(target);
+    if (parsed) target = parsed;
+  }
   if (!target.startsWith("http://") && !target.startsWith("https://")) {
     target = `${SERVER_BASE_URL}${target.startsWith("/") ? "" : "/"}${target}`;
   }
