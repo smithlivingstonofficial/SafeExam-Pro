@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -32,6 +33,14 @@ export function ExamCompleted({
   universityName,
 }: ExamCompletedProps) {
   const submitDate = submittedAt ? new Date(submittedAt) : new Date();
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).safeExamDesktop) {
+      setIsDesktop(true);
+      (window as any).safeExamDesktop.setExamState(false);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center items-center">
@@ -96,14 +105,14 @@ export function ExamCompleted({
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-          {typeof window !== "undefined" && (window as any).safeExamDesktop ? (
+          {isDesktop ? (
             <button
               type="button"
               onClick={() => (window as any).safeExamDesktop?.exitApp()}
               className="w-full sm:w-auto px-6 py-3 rounded-xl bg-slate-900 hover:bg-black text-white font-extrabold text-xs shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Exit SafeExam Client</span>
+              <span>Exit Safe Browser</span>
             </button>
           ) : (
             <Link

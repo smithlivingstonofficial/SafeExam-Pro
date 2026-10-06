@@ -16,11 +16,14 @@ export interface SafeExamDesktopAPI {
   onSecurityAlert: (callback: (infractions: any[]) => void) => void;
 }
 
+let isCurrentExamLive = false;
+
 contextBridge.exposeInMainWorld("safeExamDesktop", {
   runDiagnostics: () => ipcRenderer.invoke("run-diagnostics"),
   launchExamSession: (examUrl: string) => ipcRenderer.invoke("launch-exam", examUrl),
   exitApp: (force?: boolean) => ipcRenderer.send("exit-app", force),
   setExamState: (isLive: boolean) => {
+    isCurrentExamLive = !!isLive;
     ipcRenderer.send("set-exam-state", isLive);
     updateTopBarState(isLive);
   },
@@ -31,19 +34,20 @@ contextBridge.exposeInMainWorld("safeExamDesktop", {
 } as SafeExamDesktopAPI);
 
 function updateTopBarState(isLive: boolean) {
+  isCurrentExamLive = isLive;
   const exitContainer = document.getElementById("safeexam-topbar-right");
   if (!exitContainer) return;
 
   if (isLive) {
     exitContainer.innerHTML = `
-      <div style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
-        <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444; animation: pulse 1.5s infinite;"></span>
-        <span>Exam In Progress (Submit to Exit)</span>
+      <div style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(239,68,68,0.1);">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #ef4444; animation: pulse 1.5s infinite;"></span>
+        <span>🔒 Exam In Progress (Submit to Exit)</span>
       </div>
     `;
   } else {
     exitContainer.innerHTML = `
-      <button id="safeexam-topbar-exit-btn" style="background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s ease;">
+      <button id="safeexam-topbar-exit-btn" style="background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/>
@@ -54,16 +58,49 @@ function updateTopBarState(isLive: boolean) {
     `;
     const btn = document.getElementById("safeexam-topbar-exit-btn");
     if (btn) {
-      btn.onmouseover = () => { btn.style.background = "#fee2e2"; btn.style.color = "#991b1b"; btn.style.borderColor = "#fca5a5"; };
-      btn.onmouseout = () => { btn.style.background = "#f8fafc"; btn.style.color = "#334155"; btn.style.borderColor = "#cbd5e1"; };
-      btn.onclick = () => { ipcRenderer.send("exit-app"); };
+      btn.onmouseover = () => {
+        btn.style.background = "#fee2e2";
+        btn.style.color = "#991b1b";
+        btn.style.borderColor = "#fca5a5";
+      };
+      btn.onmouseout = () => {
+        btn.style.background = "#f8fafc";
+        btn.style.color = "#334155";
+        btn.style.borderColor = "#cbd5e1";
+      };
+      btn.onclick = () => {
+        ipcRenderer.send("exit-app");
+      };
     }
   }
 }
 
-function injectTopBar() {
+function injectSecurityStylesAndTopBar() {
   if (typeof window === "undefined") return;
-  // Do not inject on local file diagnostic page
+
+  // Prevent trackpad gestures and bounce navigation via CSS
+  const style = document.createElement("style");
+  style.id = "safeexam-lockdown-css";
+  style.textContent = `
+    html, body {
+      overscroll-behavior-x: none !important;
+      overscroll-behavior-y: none !important;
+      touch-action: pan-y !important;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  `;
+  if (document.head) {
+    document.head.appendChild(style);
+  } else {
+    document.addEventListener("DOMContentLoaded", () => {
+      document.head?.appendChild(style);
+    });
+  }
+
+  // Do not inject top bar on local file diagnostic page
   if (window.location.protocol.startsWith("file:")) return;
   if (document.getElementById("safeexam-topbar")) return;
 
@@ -100,7 +137,8 @@ function injectTopBar() {
   `;
 
   const center = document.createElement("div");
-  center.style.cssText = "display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #047857; background: #ecfdf5; padding: 2.5px 9px; border-radius: 9999px; border: 1px solid #a7f3d0;";
+  center.style.cssText =
+    "display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #047857; background: #ecfdf5; padding: 2.5px 9px; border-radius: 9999px; border: 1px solid #a7f3d0;";
   center.innerHTML = `
     <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
     <span>OS Kiosk Active • Single Display Shield</span>
@@ -115,8 +153,9 @@ function injectTopBar() {
   bar.appendChild(right);
 
   // Check if live exam is already active based on URL
-  const isCurrentlyInExam = window.location.pathname.includes("/candidate/exam/") && !window.location.pathname.endsWith("/candidate");
-  
+  const isCurrentlyInExam =
+    window.location.pathname.includes("/candidate/exam/") && !window.location.pathname.endsWith("/candidate");
+
   if (document.body) {
     document.body.prepend(bar);
     document.body.style.paddingTop = "36px";
@@ -130,8 +169,41 @@ function injectTopBar() {
   }
 }
 
+// Global key suppressor in DOM capture phase
+window.addEventListener(
+  "keydown",
+  (e) => {
+    // If not in live exam and user presses Escape, trigger exit dialog
+    if (!isCurrentExamLive && e.key === "Escape") {
+      ipcRenderer.send("exit-app");
+      return;
+    }
+
+    // If live exam is active, trap all tab-switching and dangerous shortcuts
+    if (isCurrentExamLive) {
+      if (e.key === "Tab" && (e.altKey || e.ctrlKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (e.key === "F5" || (e.ctrlKey && e.key.toLowerCase() === "r")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (e.ctrlKey && (e.key.toLowerCase() === "w" || e.key.toLowerCase() === "t" || e.key.toLowerCase() === "n")) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  },
+  true
+);
+
 if (document.readyState === "loading") {
-  window.addEventListener("DOMContentLoaded", injectTopBar);
+  window.addEventListener("DOMContentLoaded", injectSecurityStylesAndTopBar);
 } else {
-  injectTopBar();
+  injectSecurityStylesAndTopBar();
 }

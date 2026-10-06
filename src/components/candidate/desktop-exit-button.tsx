@@ -7,7 +7,11 @@ export function DesktopExitButton({ className }: { className?: string }) {
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    setIsDesktop(typeof window !== "undefined" && !!(window as any).safeExamDesktop);
+    if (typeof window !== "undefined" && !!(window as any).safeExamDesktop) {
+      setIsDesktop(true);
+      // Ensure exam state is unlocked whenever exit button is available
+      (window as any).safeExamDesktop.setExamState(false);
+    }
   }, []);
 
   if (!isDesktop) return null;

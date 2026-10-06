@@ -4,7 +4,8 @@
   "description": "SafeExam Pro — Secure Lockdown Desktop Examination Client",
   "main": "dist/main/index.js",
   "scripts": {
-    "build": "tsc && node -e \"const fs=require('fs'); fs.cpSync('src/renderer', 'dist/renderer', {recursive: true});\"",
+    "compile-hook": "powershell -Command \"if (-not (Test-Path 'bin')) { New-Item -ItemType Directory -Path 'bin' -Force }; & 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe' /target:winexe /out:'bin\\safeexam-hook.exe' /platform:x64 src\\native\\SafeExamLockdownHook.cs\"",
+    "build": "npm run compile-hook && tsc && node -e \"const fs=require('fs'); fs.cpSync('src/renderer', 'dist/renderer', {recursive: true});\"",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron .",
     "dist": "npm run build && electron-builder"

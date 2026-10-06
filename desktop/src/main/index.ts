@@ -17,12 +17,24 @@ import {
   DetectedProcessInfraction,
 } from "./security";
 import { generateAttestationToken } from "./attestation";
+import { WindowsLockdownHook } from "./native-hook";
+
+// Disable trackpad pinch-to-zoom and edge-swipe overscroll navigation at the Chromium engine level
+app.commandLine.appendSwitch("disable-overscroll-edge-effects");
+app.commandLine.appendSwitch("overscroll-history-navigation", "0");
+app.commandLine.appendSwitch("disable-pinch");
 
 let mainWindow: BrowserWindow | null = null;
 const blackoutGuard = new DisplayBlackoutGuard();
 let processScanInterval: NodeJS.Timeout | null = null;
 let currentExamTargetUrl: string | null = null;
 let isLiveExamActive: boolean = false;
+
+// Native Win32 Low-Level Keyboard & Gesture Hook (blocks Alt+Tab, Win keys, trackpad gestures)
+const nativeHook = new WindowsLockdownHook(() => {
+  console.log("[NativeHook] Supervisor Emergency Override invoked.");
+  promptExitClient(true);
+});
 
 // Target Web Platform Base URL (default local dev, customizable via env)
 const SERVER_BASE_URL = process.env.SAFEEXAM_SERVER_URL || "http://localhost:3000";
@@ -65,6 +77,7 @@ function parseSafeExamProtocolUrl(urlStr: string): string | null {
  */
 function promptExitClient(force: boolean = false): void {
   if (!mainWindow || mainWindow.isDestroyed()) {
+    nativeHook.stop();
     app.quit();
     return;
   }
@@ -72,6 +85,7 @@ function promptExitClient(force: boolean = false): void {
   if (force) {
     currentExamTargetUrl = null;
     isLiveExamActive = false;
+    nativeHook.stop();
     app.quit();
     return;
   }
@@ -103,6 +117,7 @@ function promptExitClient(force: boolean = false): void {
   if (response === 0) {
     currentExamTargetUrl = null;
     isLiveExamActive = false;
+    nativeHook.stop();
     app.quit();
   }
 }
@@ -131,6 +146,7 @@ function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       devTools: process.env.NODE_ENV === "development",
+      zoomFactor: 1.0,
     },
   });
 
@@ -143,6 +159,18 @@ function createMainWindow() {
   } catch {
     // OS level fallback
   }
+
+  // Lock zoom limits to 1.0
+  mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+  mainWindow.webContents.setZoomLevel(0);
+  mainWindow.webContents.on("zoom-changed", (e) => {
+    e.preventDefault();
+  });
+
+  // Suppress trackpad swipe gesture navigation inside Electron window
+  (mainWindow as any).on("swipe", (e: any) => {
+    e.preventDefault();
+  });
 
   // Load Diagnostic & Launch Screen initially (check dist and src fallbacks)
   const distHtmlPath = path.join(__dirname, "../renderer/index.html");
@@ -183,6 +211,7 @@ function createMainWindow() {
   mainWindow.webContents.on("did-navigate", (_event, url) => {
     if (!url.includes("/candidate/exam/") || url.endsWith("/candidate")) {
       isLiveExamActive = false;
+      nativeHook.setLocked(false);
     }
   });
 
@@ -210,6 +239,14 @@ function createMainWindow() {
     });
   });
 
+  // Prevent minimization during active exam
+  mainWindow.on("minimize", () => {
+    if (isLiveExamActive) {
+      mainWindow?.restore();
+      mainWindow?.focus();
+    }
+  });
+
   // Keyboard hook: blocks Windows key, Alt-Tab, PrintScreen, DevTools, Task Manager
   mainWindow.webContents.on("before-input-event", (event, input) => {
     // Supervisor Emergency Override: Ctrl+Alt+Shift+Q
@@ -220,9 +257,7 @@ function createMainWindow() {
       input.key.toLowerCase() === "q"
     ) {
       console.log("Supervisor Emergency Exit triggered.");
-      currentExamTargetUrl = null;
-      isLiveExamActive = false;
-      app.quit();
+      promptExitClient(true);
       return;
     }
 
@@ -238,28 +273,6 @@ function createMainWindow() {
       return;
     }
 
-    // Block Alt+Tab, Alt+Esc, Alt+Space, Alt+F4
-    if (
-      input.alt &&
-      (input.key === "Tab" ||
-        input.key === "Escape" ||
-        input.key === " " ||
-        input.key === "F4")
-    ) {
-      event.preventDefault();
-      return;
-    }
-
-    // Block Ctrl+Esc (Start Menu), Ctrl+Shift+Esc (Task Manager)
-    if (input.control && input.key === "Escape") {
-      event.preventDefault();
-      return;
-    }
-    if (input.control && input.shift && input.key === "Escape") {
-      event.preventDefault();
-      return;
-    }
-
     // Block PrintScreen / Screen Capture & clear clipboard
     if (input.key === "PrintScreen") {
       event.preventDefault();
@@ -271,17 +284,84 @@ function createMainWindow() {
       return;
     }
 
-    // Block browser reload and DevTools keys
-    if (
-      input.key === "F11" ||
-      input.key === "F12" ||
-      input.key === "F5" ||
-      (input.control && input.key.toLowerCase() === "r") ||
-      (input.control && input.key.toLowerCase() === "u") ||
-      (input.control && input.shift && ["i", "j", "c"].includes(input.key.toLowerCase()))
-    ) {
-      event.preventDefault();
-      return;
+    // If live exam is active, strictly block all switching, shortcut combinations & hotkeys
+    if (isLiveExamActive) {
+      // Block Escape during exam
+      if (input.key === "Escape" || input.key === "Esc") {
+        event.preventDefault();
+        return;
+      }
+
+      // Block Alt+Tab, Alt+Esc, Alt+Space, Alt+F4
+      if (
+        input.alt &&
+        (input.key === "Tab" ||
+          input.key === "Escape" ||
+          input.key === " " ||
+          input.key === "F4" ||
+          input.key === "ArrowLeft" ||
+          input.key === "ArrowRight")
+      ) {
+        event.preventDefault();
+        return;
+      }
+
+      // Block Ctrl+Tab, Ctrl+Shift+Tab (browser tab switching)
+      if (input.control && input.key === "Tab") {
+        event.preventDefault();
+        return;
+      }
+
+      // Block Ctrl+PageUp, Ctrl+PageDown (tab switching)
+      if (input.control && (input.key === "PageUp" || input.key === "PageDown")) {
+        event.preventDefault();
+        return;
+      }
+
+      // Block Ctrl+1 through Ctrl+9 (tab switching)
+      if (input.control && /^[1-9]$/.test(input.key)) {
+        event.preventDefault();
+        return;
+      }
+
+      // Block Ctrl+Esc (Start Menu), Ctrl+Shift+Esc (Task Manager)
+      if (input.control && input.key === "Escape") {
+        event.preventDefault();
+        return;
+      }
+
+      // Block Ctrl+W (close), Ctrl+T (new tab), Ctrl+N (new window), Ctrl+U (source)
+      if (
+        input.control &&
+        ["w", "t", "n", "u", "p", "s", "o", "j", "h"].includes(input.key.toLowerCase())
+      ) {
+        event.preventDefault();
+        return;
+      }
+
+      // Block browser reload and DevTools keys
+      if (
+        input.key === "F1" ||
+        input.key === "F3" ||
+        input.key === "F5" ||
+        input.key === "F6" ||
+        input.key === "F11" ||
+        input.key === "F12" ||
+        (input.control && input.key.toLowerCase() === "r") ||
+        (input.control && input.shift && ["i", "j", "c", "r"].includes(input.key.toLowerCase()))
+      ) {
+        event.preventDefault();
+        return;
+      }
+    } else {
+      // Outside live exam: block DevTools keys
+      if (
+        input.key === "F12" ||
+        (input.control && input.shift && ["i", "j", "c"].includes(input.key.toLowerCase()))
+      ) {
+        event.preventDefault();
+        return;
+      }
     }
   });
 
@@ -337,9 +417,7 @@ function registerSecurityShortcuts() {
   try {
     globalShortcut.register("Control+Alt+Shift+Q", () => {
       console.log("Supervisor Emergency Exit triggered.");
-      currentExamTargetUrl = null;
-      isLiveExamActive = false;
-      app.quit();
+      promptExitClient(true);
     });
   } catch {
     // ignore
@@ -352,12 +430,13 @@ function registerSecurityShortcuts() {
 function startPeriodicSecurityScanner() {
   if (processScanInterval) clearInterval(processScanInterval);
 
+  // Scan every 2.5 seconds for instant threat neutralization
   processScanInterval = setInterval(async () => {
     const infractions = await scanRunningProcesses();
     if (infractions.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("security-infraction-alert", infractions);
     }
-  }, 3500);
+  }, 2500);
 }
 
 // Attach attestation headers to all outgoing requests to university server
@@ -385,6 +464,10 @@ function configureAttestationHeaders() {
 
 // App lifecycle
 app.whenReady().then(() => {
+  // 1. Engage Native Win32 Low-Level Hook process
+  nativeHook.start();
+
+  // 2. Configure attestation & create kiosk
   configureAttestationHeaders();
   createMainWindow();
   registerSecurityShortcuts();
@@ -413,12 +496,14 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  nativeHook.stop();
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
 app.on("will-quit", () => {
+  nativeHook.stop();
   globalShortcut.unregisterAll();
   if (processScanInterval) clearInterval(processScanInterval);
   blackoutGuard.clearBlackouts();
@@ -459,10 +544,11 @@ ipcMain.on("exit-app", (_event, force?: boolean) => {
   promptExitClient(force === true);
 });
 
-// IPC Handler: Update Live Exam State
+// IPC Handler: Update Live Exam State (toggles Win32 low-level hook lock)
 ipcMain.on("set-exam-state", (_event, isLive: boolean) => {
   isLiveExamActive = !!isLive;
-  console.log(`Live exam state updated to: ${isLiveExamActive}`);
+  nativeHook.setLocked(isLiveExamActive);
+  console.log(`[ExamState] Live exam state: ${isLiveExamActive} — Native Hook setLocked(${isLiveExamActive})`);
 });
 
 // IPC Handler: Get Live Exam State
@@ -473,6 +559,7 @@ ipcMain.handle("get-exam-state", () => {
 // Handle custom protocol launch on Windows (Single Instance Lock)
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
+  nativeHook.stop();
   app.quit();
 } else {
   app.on("second-instance", (_event, commandLine) => {
