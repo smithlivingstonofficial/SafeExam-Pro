@@ -172,7 +172,7 @@ export class DisplayBlackoutGuard {
     const allDisplays = screen.getAllDisplays();
     const isWin = process.platform === "win32";
 
-    allDisplays.forEach((disp) => {
+    allDisplays.forEach((disp: any) => {
       if (disp.id !== primaryDisplayId) {
         const win = new BrowserWindow({
           x: disp.bounds.x,

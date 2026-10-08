@@ -612,7 +612,7 @@ function startPeriodicSecurityScanner() {
 function configureAttestationHeaders() {
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ["http://*/*", "https://*/*"] },
-    (details, callback) => {
+    (details: any, callback: any) => {
       const targetUrl = details.url;
       const isTarget =
         targetUrl.startsWith(SERVER_BASE_URL) ||
@@ -665,7 +665,7 @@ app.whenReady().then(() => {
   });
 });
 
-app.on("before-quit", (e) => {
+app.on("before-quit", (e: any) => {
   if (isLiveExamActive) {
     e.preventDefault();
     console.log("Blocked app quit attempt during live exam.");
@@ -716,7 +716,7 @@ ipcMain.handle("run-diagnostics", async () => {
 });
 
 // IPC Handler: Launch Exam URL inside hardened window
-ipcMain.handle("launch-exam", async (_event, examUrl: string) => {
+ipcMain.handle("launch-exam", async (_event: any, examUrl: string) => {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
 
   let target = examUrl.trim();
@@ -746,12 +746,12 @@ ipcMain.handle("launch-exam", async (_event, examUrl: string) => {
 });
 
 // IPC Handler: Exit App
-ipcMain.on("exit-app", (_event, force?: boolean) => {
+ipcMain.on("exit-app", (_event: any, force?: boolean) => {
   promptExitClient(force === true);
 });
 
 // IPC Handler: Update Live Exam State (toggles Win32 low-level hook lock)
-ipcMain.on("set-exam-state", (_event, isLive: boolean) => {
+ipcMain.on("set-exam-state", (_event: any, isLive: boolean) => {
   isLiveExamActive = !!isLive;
   nativeHook.setLocked(isLiveExamActive);
   if (mainWindow && !mainWindow.isDestroyed() && process.platform === "darwin") {
@@ -764,3 +764,4 @@ ipcMain.on("set-exam-state", (_event, isLive: boolean) => {
 ipcMain.handle("get-exam-state", () => {
   return isLiveExamActive;
 });
+

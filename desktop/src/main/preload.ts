@@ -29,7 +29,7 @@ contextBridge.exposeInMainWorld("safeExamDesktop", {
   },
   getExamState: () => ipcRenderer.invoke("get-exam-state"),
   onSecurityAlert: (callback: (infractions: any[]) => void) => {
-    ipcRenderer.on("security-infraction-alert", (_event, infractions) => callback(infractions));
+    ipcRenderer.on("security-infraction-alert", (_event: any, infractions: any[]) => callback(infractions));
   },
 } as SafeExamDesktopAPI);
 
