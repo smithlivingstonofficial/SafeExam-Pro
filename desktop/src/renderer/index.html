@@ -100,12 +100,12 @@
         <span>Commence Examination Session</span>
       </button>
       <button id="btnExit" class="btn-secondary">
-        Exit Safe Browser
+        Exit Safe Browser (Esc / ⌘Q)
       </button>
     </div>
 
     <div class="footer-info">
-      Hardware Attestation Active • Alt-Tab & Screen Capture Inhibitors Engaged
+      Hardware Attestation Active • Alt-Tab & Screen Capture Inhibitors Engaged • Press Esc or ⌘Q to Exit
     </div>
   </div>
 
@@ -189,7 +189,30 @@
 
       btnLaunch.disabled = true;
       btnLaunch.innerHTML = "Launching Secure Session...";
-      await window.safeExamDesktop.launchExamSession(url);
+      try {
+        const success = await window.safeExamDesktop.launchExamSession(url);
+        if (!success) {
+          btnLaunch.disabled = false;
+          btnLaunch.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            <span>Commence Examination Session</span>
+          `;
+          alertDesc.textContent = `Unable to connect to exam target (${url}). Please ensure the assessment server is running and reachable.`;
+          alertBox.style.display = "block";
+        }
+      } catch (err) {
+        btnLaunch.disabled = false;
+        btnLaunch.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span>Commence Examination Session</span>
+        `;
+        alertDesc.textContent = `Launch error: ${err?.message || err}. Please check server connectivity.`;
+        alertBox.style.display = "block";
+      }
     });
 
     btnExit.addEventListener("click", () => {
@@ -197,7 +220,11 @@
     });
 
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+      if (
+        e.key === "Escape" ||
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "q") ||
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "w")
+      ) {
         window.safeExamDesktop.exitApp();
       }
     });

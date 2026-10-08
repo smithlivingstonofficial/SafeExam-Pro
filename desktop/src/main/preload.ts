@@ -173,15 +173,21 @@ function injectSecurityStylesAndTopBar() {
 window.addEventListener(
   "keydown",
   (e) => {
-    // If not in live exam and user presses Escape, trigger exit dialog
-    if (!isCurrentExamLive && e.key === "Escape") {
-      ipcRenderer.send("exit-app");
-      return;
+    // If not in live exam and user presses Escape, Cmd+Q, or Ctrl+Q, trigger exit
+    if (!isCurrentExamLive) {
+      const isExitAttempt =
+        e.key === "Escape" ||
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "q") ||
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "w");
+      if (isExitAttempt) {
+        ipcRenderer.send("exit-app");
+        return;
+      }
     }
 
     // If live exam is active, trap all tab-switching and dangerous shortcuts
     if (isCurrentExamLive) {
-      if (e.key === "Tab" && (e.altKey || e.ctrlKey)) {
+      if (e.key === "Tab" && (e.altKey || e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -189,11 +195,14 @@ window.addEventListener(
         e.preventDefault();
         e.stopPropagation();
       }
-      if (e.key === "F5" || (e.ctrlKey && e.key.toLowerCase() === "r")) {
+      if (e.key === "F5" || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "r")) {
         e.preventDefault();
         e.stopPropagation();
       }
-      if (e.ctrlKey && (e.key.toLowerCase() === "w" || e.key.toLowerCase() === "t" || e.key.toLowerCase() === "n")) {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        ["w", "t", "n", "q", "r", "h", "m"].includes(e.key.toLowerCase())
+      ) {
         e.preventDefault();
         e.stopPropagation();
       }

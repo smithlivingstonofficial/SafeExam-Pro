@@ -20,6 +20,14 @@ import {
 import { generateAttestationToken } from "./attestation";
 import { WindowsLockdownHook } from "./native-hook";
 
+// Enforce Single Instance Lock at entry point before app.whenReady()
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  // Another instance is already running; terminate immediately without creating any windows
+  app.quit();
+  app.exit(0);
+}
+
 // Disable trackpad pinch-to-zoom and edge-swipe overscroll navigation at the Chromium engine level
 app.commandLine.appendSwitch("disable-overscroll-edge-effects");
 app.commandLine.appendSwitch("overscroll-history-navigation", "0");
@@ -30,6 +38,7 @@ const blackoutGuard = new DisplayBlackoutGuard();
 let processScanInterval: NodeJS.Timeout | null = null;
 let currentExamTargetUrl: string | null = null;
 let isLiveExamActive: boolean = false;
+let pendingDeepLinkUrl: string | null = null;
 
 // Native Win32 Low-Level Keyboard & Gesture Hook (blocks Alt+Tab, Win keys, trackpad gestures)
 const nativeHook = new WindowsLockdownHook(() => {
@@ -71,28 +80,99 @@ function parseSafeExamProtocolUrl(urlStr: string): string | null {
   return null;
 }
 
+function handleDeepLink(urlStr: string) {
+  const parsed = parseSafeExamProtocolUrl(urlStr);
+  if (parsed) {
+    currentExamTargetUrl = parsed;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.loadURL(parsed).catch((err) => {
+        console.error("[DeepLink] Failed to load URL:", err);
+      });
+    } else {
+      pendingDeepLinkUrl = urlStr;
+    }
+  }
+}
+
+// Windows second-instance command line handler
+app.on("second-instance", (_event, commandLine) => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow();
+  } else {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    if (process.platform === "darwin") {
+      app.dock?.show();
+      app.focus({ steal: true });
+    }
+  }
+
+  const protocolUrl = commandLine.find((arg) => arg.startsWith("safeexam://"));
+  if (protocolUrl) {
+    handleDeepLink(protocolUrl);
+  }
+});
+
+// macOS protocol URL handler
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  handleDeepLink(url);
+});
+
+// macOS dock activation handler
+app.on("activate", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createMainWindow();
+  } else {
+    mainWindow.show();
+    mainWindow.focus();
+    if (process.platform === "darwin") {
+      app.dock?.show();
+      app.focus({ steal: true });
+    }
+  }
+});
+
 /**
  * Institutional Exit Dialog:
- * If the exam has not started, candidate can safely exit.
- * If the exam is in progress, candidate must submit first.
+ * If the exam has not started, candidate can safely exit immediately.
+ * If the exam is in progress, candidate must submit first, unless proctor forces exit.
  */
 function promptExitClient(force: boolean = false): void {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    nativeHook.stop();
-    app.quit();
-    return;
-  }
-
-  if (force) {
+  const terminateCleanly = () => {
     currentExamTargetUrl = null;
     isLiveExamActive = false;
+    if (processScanInterval) {
+      clearInterval(processScanInterval);
+      processScanInterval = null;
+    }
     nativeHook.stop();
+    blackoutGuard.clearBlackouts();
+    globalShortcut.unregisterAll();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.removeAllListeners("close");
+      mainWindow.destroy();
+      mainWindow = null;
+    }
     app.quit();
+    app.exit(0);
+  };
+
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    terminateCleanly();
     return;
   }
 
-  if (isLiveExamActive) {
-    dialog.showMessageBoxSync(mainWindow, {
+  // If forced by proctor/supervisor OR not in an active live exam: exit cleanly immediately
+  if (force || !isLiveExamActive) {
+    terminateCleanly();
+    return;
+  }
+
+  // Active examination underway: notify candidate asynchronously without freezing event loop
+  dialog
+    .showMessageBox(mainWindow, {
       type: "warning",
       buttons: ["Return to Examination"],
       defaultId: 0,
@@ -100,33 +180,59 @@ function promptExitClient(force: boolean = false): void {
       message: "Active Examination Underway",
       detail:
         "You are currently taking an active examination. In accordance with university examination policy, you must submit your answers using the 'Submit Examination' button inside the test room before exiting.",
-    });
-    return;
-  }
-
-  // Not in active exam: confirm exit cleanly
-  const response = dialog.showMessageBoxSync(mainWindow, {
-    type: "question",
-    buttons: ["Exit SafeExam", "Stay"],
-    defaultId: 0,
-    cancelId: 1,
-    title: "Exit SafeExam Pro",
-    message: "Exit SafeExam Pro Lockdown Client?",
-    detail: "You have not started an active examination. Your session will be safely closed.",
-  });
-
-  if (response === 0) {
-    currentExamTargetUrl = null;
-    isLiveExamActive = false;
-    nativeHook.stop();
-    app.quit();
-  }
+    })
+    .catch(() => {});
 }
 
 function createMainWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
+  const isMac = process.platform === "darwin";
 
-  Menu.setApplicationMenu(null);
+  if (isMac) {
+    const template: Electron.MenuItemConstructorOptions[] = [
+      {
+        label: app.name,
+        submenu: [
+          { role: "about" },
+          { type: "separator" },
+          {
+            label: "Quit SafeExam Pro",
+            accelerator: "Command+Q",
+            click: () => {
+              promptExitClient(false);
+            },
+          },
+        ],
+      },
+      {
+        label: "Edit",
+        submenu: [
+          { role: "undo" },
+          { role: "redo" },
+          { type: "separator" },
+          { role: "cut" },
+          { role: "copy" },
+          { role: "paste" },
+          { role: "selectAll" },
+        ],
+      },
+      {
+        label: "Window",
+        submenu: [
+          {
+            label: "Close Window",
+            accelerator: "Command+W",
+            click: () => {
+              promptExitClient(false);
+            },
+          },
+        ],
+      },
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  } else {
+    Menu.setApplicationMenu(null);
+  }
 
   mainWindow = new BrowserWindow({
     width: primaryDisplay.bounds.width,
@@ -134,16 +240,14 @@ function createMainWindow() {
     x: primaryDisplay.bounds.x,
     y: primaryDisplay.bounds.y,
     frame: false,
-    kiosk: true,
-    simpleFullscreen: process.platform === "darwin",
-    alwaysOnTop: true,
-    fullscreen: true,
+    kiosk: !isMac,
+    fullscreen: !isMac,
     minimizable: false,
     maximizable: false,
     closable: true,
     movable: false,
     resizable: false,
-    skipTaskbar: true,
+    skipTaskbar: false,
     backgroundColor: "#ffffff",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -161,14 +265,19 @@ function createMainWindow() {
     // OS level fallback
   }
 
-  // Raise to highest screen-saver level on Windows
-  mainWindow.setAlwaysOnTop(true, "screen-saver");
-
-  // Prevent virtual desktop bypass (Win+Tab / Desktop 2) by showing on all workspaces
-  try {
-    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  } catch {
-    // OS level fallback
+  // Raise window level safely:
+  // On Windows, use "screen-saver" level and visible on all workspaces.
+  // On macOS, DO NOT use "screen-saver" level or setVisibleOnAllWorkspaces (which causes WindowServer hiding/focus yielding)
+  // Instead use "floating" level on macOS to ensure it stays in the foreground.
+  if (process.platform === "win32") {
+    mainWindow.setAlwaysOnTop(true, "screen-saver");
+    try {
+      mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    } catch {
+      // OS level fallback
+    }
+  } else {
+    mainWindow.setAlwaysOnTop(true, "floating");
   }
 
   // Lock zoom limits to 1.0
@@ -188,6 +297,13 @@ function createMainWindow() {
   const srcHtmlPath = path.join(__dirname, "../../src/renderer/index.html");
   const htmlToLoad = fs.existsSync(distHtmlPath) ? distHtmlPath : srcHtmlPath;
   mainWindow.loadFile(htmlToLoad);
+
+  mainWindow.show();
+  mainWindow.focus();
+  if (isMac) {
+    app.dock?.show();
+    app.focus({ steal: true });
+  }
 
   // Apply secondary display blackout shields
   blackoutGuard.applyBlackouts(primaryDisplay.id);
@@ -232,6 +348,9 @@ function createMainWindow() {
     if (!url.includes("/candidate/exam/") || url.endsWith("/candidate")) {
       isLiveExamActive = false;
       nativeHook.setLocked(false);
+      if (process.platform === "darwin" && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setSimpleFullScreen(false);
+      }
     }
   });
 
@@ -241,8 +360,13 @@ function createMainWindow() {
     return { action: "deny" };
   });
 
-  // Anti-Switching: If focus is lost (e.g. Win+Tab or Alt-Tab attempt), wipe clipboard and refocus instantly!
+  // Anti-Switching: If focus is lost during live exam, refocus!
   mainWindow.on("blur", () => {
+    // Only enforce aggressive anti-switch focus stealing during ACTIVE live exam!
+    if (!isLiveExamActive) {
+      return;
+    }
+
     try {
       clipboard.clear();
     } catch {
@@ -250,11 +374,16 @@ function createMainWindow() {
     }
 
     setImmediate(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow && !mainWindow.isDestroyed() && isLiveExamActive) {
         mainWindow.show();
         mainWindow.restore();
         mainWindow.focus();
-        mainWindow.setAlwaysOnTop(true, "screen-saver");
+        if (process.platform === "win32") {
+          mainWindow.setAlwaysOnTop(true, "screen-saver");
+        } else {
+          mainWindow.setAlwaysOnTop(true, "floating");
+          app.focus({ steal: true });
+        }
       }
     });
   });
@@ -267,28 +396,58 @@ function createMainWindow() {
     }
   });
 
-  // Keyboard hook: blocks Windows key, Alt-Tab, PrintScreen, DevTools, Task Manager
+  // Keyboard hook: blocks system keys, hotkeys, tab switching during live exam
   mainWindow.webContents.on("before-input-event", (event, input) => {
-    // Supervisor Emergency Override: Ctrl+Alt+Shift+Q
-    if (
-      input.control &&
+    // Supervisor Emergency Override: Ctrl+Alt+Shift+Q or Cmd+Alt+Shift+Q
+    const isSupervisorCombo =
+      (input.control || input.meta) &&
       input.alt &&
       input.shift &&
-      input.key.toLowerCase() === "q"
-    ) {
+      input.key.toLowerCase() === "q";
+
+    if (isSupervisorCombo) {
       console.log("Supervisor Emergency Exit triggered.");
       promptExitClient(true);
       return;
     }
 
-    // If not in live exam, allow Escape to prompt exit
-    if (!isLiveExamActive && (input.key === "Escape" || input.key === "Esc")) {
-      promptExitClient(false);
+    // Outside live exam: allow clean exit shortcuts and normal OS usage
+    if (!isLiveExamActive) {
+      // Allow Escape to exit
+      if (input.key === "Escape" || input.key === "Esc") {
+        promptExitClient(false);
+        return;
+      }
+
+      // Allow Cmd+Q or Ctrl+Q or Cmd+W or Ctrl+W to exit outside active exam
+      const isExitKey =
+        (input.meta || input.control) &&
+        (input.key.toLowerCase() === "q" || input.key.toLowerCase() === "w");
+      if (isExitKey) {
+        promptExitClient(false);
+        return;
+      }
+
+      // Block DevTools keys outside development
+      if (process.env.NODE_ENV !== "development") {
+        if (
+          input.key === "F12" ||
+          ((input.control || input.meta) &&
+            input.shift &&
+            ["i", "j", "c"].includes(input.key.toLowerCase()))
+        ) {
+          event.preventDefault();
+          return;
+        }
+      }
+
       return;
     }
 
-    // Block Windows Key
-    if (input.key === "Meta") {
+    // --- FROM HERE: LIVE EXAM IS ACTIVE ---
+
+    // Block Windows Key on Windows
+    if (input.key === "Meta" && process.platform === "win32") {
       event.preventDefault();
       return;
     }
@@ -304,109 +463,97 @@ function createMainWindow() {
       return;
     }
 
-    // If live exam is active, strictly block all switching, shortcut combinations & hotkeys
-    if (isLiveExamActive) {
-      // On macOS: Block Command (Meta) shortcut combinations
-      if (input.meta) {
-        const key = input.key.toLowerCase();
-        if (
-          key === "q" ||
-          key === "w" ||
-          key === "h" ||
-          key === "m" ||
-          key === "tab" ||
-          key === " " ||
-          key === "r"
-        ) {
-          event.preventDefault();
-          return;
-        }
-        if (input.shift && ["3", "4", "5"].includes(key)) {
-          event.preventDefault();
-          return;
-        }
-        if (input.alt && (key === "escape" || key === "esc")) {
-          event.preventDefault();
-          return;
-        }
-      }
-
-      // Block Escape during exam
-      if (input.key === "Escape" || input.key === "Esc") {
-        event.preventDefault();
-        return;
-      }
-
-      // Block Alt+Tab, Alt+Esc, Alt+Space, Alt+F4
+    // On macOS: Block Command (Meta) shortcut combinations during exam
+    if (input.meta) {
+      const key = input.key.toLowerCase();
       if (
-        input.alt &&
-        (input.key === "Tab" ||
-          input.key === "Escape" ||
-          input.key === " " ||
-          input.key === "F4" ||
-          input.key === "ArrowLeft" ||
-          input.key === "ArrowRight")
+        key === "q" ||
+        key === "w" ||
+        key === "h" ||
+        key === "m" ||
+        key === "tab" ||
+        key === " " ||
+        key === "r"
       ) {
         event.preventDefault();
         return;
       }
+      if (input.shift && ["3", "4", "5"].includes(key)) {
+        event.preventDefault();
+        return;
+      }
+      if (input.alt && (key === "escape" || key === "esc")) {
+        event.preventDefault();
+        return;
+      }
+    }
 
-      // Block Ctrl+Tab, Ctrl+Shift+Tab (browser tab switching)
-      if (input.control && input.key === "Tab") {
-        event.preventDefault();
-        return;
-      }
+    // Block Escape during exam
+    if (input.key === "Escape" || input.key === "Esc") {
+      event.preventDefault();
+      return;
+    }
 
-      // Block Ctrl+PageUp, Ctrl+PageDown (tab switching)
-      if (input.control && (input.key === "PageUp" || input.key === "PageDown")) {
-        event.preventDefault();
-        return;
-      }
+    // Block Alt+Tab, Alt+Esc, Alt+Space, Alt+F4
+    if (
+      input.alt &&
+      (input.key === "Tab" ||
+        input.key === "Escape" ||
+        input.key === " " ||
+        input.key === "F4" ||
+        input.key === "ArrowLeft" ||
+        input.key === "ArrowRight")
+    ) {
+      event.preventDefault();
+      return;
+    }
 
-      // Block Ctrl+1 through Ctrl+9 (tab switching)
-      if (input.control && /^[1-9]$/.test(input.key)) {
-        event.preventDefault();
-        return;
-      }
+    // Block Ctrl+Tab, Ctrl+Shift+Tab (browser tab switching)
+    if (input.control && input.key === "Tab") {
+      event.preventDefault();
+      return;
+    }
 
-      // Block Ctrl+Esc (Start Menu), Ctrl+Shift+Esc (Task Manager)
-      if (input.control && input.key === "Escape") {
-        event.preventDefault();
-        return;
-      }
+    // Block Ctrl+PageUp, Ctrl+PageDown (tab switching)
+    if (input.control && (input.key === "PageUp" || input.key === "PageDown")) {
+      event.preventDefault();
+      return;
+    }
 
-      // Block Ctrl+W (close), Ctrl+T (new tab), Ctrl+N (new window), Ctrl+U (source)
-      if (
-        input.control &&
-        ["w", "t", "n", "u", "p", "s", "o", "j", "h"].includes(input.key.toLowerCase())
-      ) {
-        event.preventDefault();
-        return;
-      }
+    // Block Ctrl+1 through Ctrl+9 (tab switching)
+    if (input.control && /^[1-9]$/.test(input.key)) {
+      event.preventDefault();
+      return;
+    }
 
-      // Block browser reload and DevTools keys
-      if (
-        input.key === "F1" ||
-        input.key === "F3" ||
-        input.key === "F5" ||
-        input.key === "F6" ||
-        input.key === "F11" ||
-        input.key === "F12" ||
-        (input.control && input.key.toLowerCase() === "r") ||
-        (input.control && input.shift && ["i", "j", "c", "r"].includes(input.key.toLowerCase()))
-      ) {
-        event.preventDefault();
-        return;
-      }
-    } else {
-      // Outside live exam: block DevTools keys
-      if (
-        input.key === "F12" ||
-        (input.control && input.shift && ["i", "j", "c"].includes(input.key.toLowerCase()))
-      ) {
-        event.preventDefault();
-        return;
-      }
+    // Block Ctrl+Esc (Start Menu), Ctrl+Shift+Esc (Task Manager)
+    if (input.control && input.key === "Escape") {
+      event.preventDefault();
+      return;
+    }
+
+    // Block Ctrl+W (close), Ctrl+T (new tab), Ctrl+N (new window), Ctrl+U (source)
+    if (
+      input.control &&
+      ["w", "t", "n", "u", "p", "s", "o", "j", "h"].includes(input.key.toLowerCase())
+    ) {
+      event.preventDefault();
+      return;
+    }
+
+    // Block browser reload and DevTools keys
+    if (
+      input.key === "F1" ||
+      input.key === "F3" ||
+      input.key === "F5" ||
+      input.key === "F6" ||
+      input.key === "F11" ||
+      input.key === "F12" ||
+      (input.control && input.key.toLowerCase() === "r") ||
+      (input.control && input.shift && ["i", "j", "c", "r"].includes(input.key.toLowerCase()))
+    ) {
+      event.preventDefault();
+      return;
     }
   });
 
@@ -435,32 +582,9 @@ function createMainWindow() {
  * Traps and blocks dangerous system hotkeys inside the kiosk.
  */
 function registerSecurityShortcuts() {
-  const restrictedShortcuts = [
-    "F12",
-    "F11",
-    "Control+Shift+I",
-    "Control+Shift+J",
-    "Control+Shift+C",
-    "Control+U",
-    "Control+R",
-    "F5",
-    "Control+W",
-    "Alt+F4",
-  ];
-
-  restrictedShortcuts.forEach((shortcut) => {
-    try {
-      globalShortcut.register(shortcut, () => {
-        // nullify shortcut silently
-      });
-    } catch {
-      // ignore OS registration limits
-    }
-  });
-
-  // Emergency Supervisor Exit Hotkey (Ctrl+Alt+Shift+Q)
+  // Emergency Supervisor Exit Hotkey (Ctrl+Alt+Shift+Q or Command+Alt+Shift+Q)
   try {
-    globalShortcut.register("Control+Alt+Shift+Q", () => {
+    globalShortcut.register("CommandOrControl+Alt+Shift+Q", () => {
       console.log("Supervisor Emergency Exit triggered.");
       promptExitClient(true);
     });
@@ -518,13 +642,14 @@ app.whenReady().then(() => {
   registerSecurityShortcuts();
   startPeriodicSecurityScanner();
 
-  // Check if launched directly with a safeexam:// protocol in CLI arguments
-  const initialDeepLink = process.argv.find((arg) => arg.startsWith("safeexam://"));
-  if (initialDeepLink && mainWindow) {
-    const parsed = parseSafeExamProtocolUrl(initialDeepLink);
-    if (parsed) {
-      currentExamTargetUrl = parsed;
-      mainWindow.loadURL(parsed);
+  // Check if launched directly with a safeexam:// protocol in CLI arguments or macOS open-url
+  if (pendingDeepLinkUrl) {
+    handleDeepLink(pendingDeepLinkUrl);
+    pendingDeepLinkUrl = null;
+  } else {
+    const initialDeepLink = process.argv.find((arg) => arg.startsWith("safeexam://"));
+    if (initialDeepLink) {
+      handleDeepLink(initialDeepLink);
     }
   }
 
@@ -544,14 +669,27 @@ app.on("before-quit", (e) => {
   if (isLiveExamActive) {
     e.preventDefault();
     console.log("Blocked app quit attempt during live exam.");
+    mainWindow?.webContents.send("security-infraction-alert", [
+      {
+        name: "QUIT_ATTEMPT",
+        category: "window_manipulation",
+        description: "Attempted to quit lockdown browser during active exam",
+        detectedAt: new Date().toISOString(),
+      },
+    ]);
+  } else {
+    if (processScanInterval) clearInterval(processScanInterval);
+    nativeHook.stop();
+    blackoutGuard.clearBlackouts();
   }
 });
 
 app.on("window-all-closed", () => {
+  if (processScanInterval) clearInterval(processScanInterval);
   nativeHook.stop();
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  blackoutGuard.clearBlackouts();
+  app.quit();
+  app.exit(0);
 });
 
 app.on("will-quit", () => {
@@ -579,7 +717,7 @@ ipcMain.handle("run-diagnostics", async () => {
 
 // IPC Handler: Launch Exam URL inside hardened window
 ipcMain.handle("launch-exam", async (_event, examUrl: string) => {
-  if (!mainWindow) return false;
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
 
   let target = examUrl.trim();
   if (target.startsWith("safeexam://")) {
@@ -591,8 +729,20 @@ ipcMain.handle("launch-exam", async (_event, examUrl: string) => {
   }
 
   currentExamTargetUrl = target;
-  await mainWindow.loadURL(target);
-  return true;
+  try {
+    await mainWindow.loadURL(target);
+    return true;
+  } catch (err) {
+    console.error(`[LaunchExam] Failed to load target ${target}:`, err);
+    // Reload local diagnostic screen gracefully on connection failure
+    const distHtmlPath = path.join(__dirname, "../renderer/index.html");
+    const srcHtmlPath = path.join(__dirname, "../../src/renderer/index.html");
+    const htmlToLoad = fs.existsSync(distHtmlPath) ? distHtmlPath : srcHtmlPath;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      await mainWindow.loadFile(htmlToLoad).catch(() => {});
+    }
+    return false;
+  }
 });
 
 // IPC Handler: Exit App
@@ -604,6 +754,9 @@ ipcMain.on("exit-app", (_event, force?: boolean) => {
 ipcMain.on("set-exam-state", (_event, isLive: boolean) => {
   isLiveExamActive = !!isLive;
   nativeHook.setLocked(isLiveExamActive);
+  if (mainWindow && !mainWindow.isDestroyed() && process.platform === "darwin") {
+    mainWindow.setSimpleFullScreen(isLiveExamActive);
+  }
   console.log(`[ExamState] Live exam state: ${isLiveExamActive} — Native Hook setLocked(${isLiveExamActive})`);
 });
 
@@ -611,26 +764,3 @@ ipcMain.on("set-exam-state", (_event, isLive: boolean) => {
 ipcMain.handle("get-exam-state", () => {
   return isLiveExamActive;
 });
-
-// Handle custom protocol launch on Windows (Single Instance Lock)
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  nativeHook.stop();
-  app.quit();
-} else {
-  app.on("second-instance", (_event, commandLine) => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-
-      // Check for safeexam:// deep link in command line args
-      const protocolUrl = commandLine.find((arg) => arg.startsWith("safeexam://"));
-      if (protocolUrl) {
-        const parsed = parseSafeExamProtocolUrl(protocolUrl);
-        if (parsed) {
-          mainWindow.loadURL(parsed);
-        }
-      }
-    }
-  });
-}

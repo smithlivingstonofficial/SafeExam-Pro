@@ -1,5 +1,6 @@
 import { exec } from "child_process";
 import * as os from "os";
+import * as path from "path";
 import { screen, BrowserWindow } from "electron";
 
 export const BLACKLISTED_PROCESSES: Array<{ name: string; category: string; description: string }> = [
@@ -77,20 +78,66 @@ export async function scanRunningProcesses(): Promise<DetectedProcessInfraction[
         return;
       }
 
-      const lowerOutput = stdout.toLowerCase();
       const infractions: DetectedProcessInfraction[] = [];
       const nowIso = new Date().toISOString();
 
-      for (const item of BLACKLISTED_PROCESSES) {
-        const needle = item.name.toLowerCase();
-        // Check if the process name exists in output
-        if (lowerOutput.includes(needle)) {
-          infractions.push({
-            name: item.name,
-            category: item.category,
-            description: item.description,
-            detectedAt: nowIso,
-          });
+      if (isWin) {
+        const lowerOutput = stdout.toLowerCase();
+        for (const item of BLACKLISTED_PROCESSES) {
+          const needle = item.name.toLowerCase();
+          if (lowerOutput.includes(needle)) {
+            infractions.push({
+              name: item.name,
+              category: item.category,
+              description: item.description,
+              detectedAt: nowIso,
+            });
+          }
+        }
+      } else {
+        // macOS / Linux process matching:
+        // Ignore internal Apple OS daemons (/System/, /usr/libexec/, /usr/sbin/, etc.)
+        const lines = stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+
+        for (const line of lines) {
+          if (line === "COMM") continue;
+
+          // Exclude macOS system daemons, system frameworks, and background app extensions/plugins
+          if (
+            line.startsWith("/System/") ||
+            line.startsWith("/usr/libexec/") ||
+            line.startsWith("/usr/sbin/") ||
+            line.startsWith("/System/Library/") ||
+            line.includes(".appex/") ||
+            line.includes("/PlugIns/") ||
+            line.includes("/Extensions/")
+          ) {
+            continue;
+          }
+
+          const lowerLine = line.toLowerCase();
+          const baseName = path.basename(line).toLowerCase();
+
+          for (const item of BLACKLISTED_PROCESSES) {
+            const needle = item.name.toLowerCase();
+
+            // Match either the binary executable name or the main macOS .app executable
+            const matchesBase = baseName === needle || baseName.startsWith(needle);
+            const matchesApp =
+              lowerLine.includes(`/${needle}.app/contents/macos/`) ||
+              lowerLine.endsWith(`/${needle}`);
+
+            if (matchesBase || matchesApp) {
+              if (!infractions.some((inf) => inf.name === item.name)) {
+                infractions.push({
+                  name: item.name,
+                  category: item.category,
+                  description: item.description,
+                  detectedAt: nowIso,
+                });
+              }
+            }
+          }
         }
       }
 
@@ -123,6 +170,7 @@ export class DisplayBlackoutGuard {
   public applyBlackouts(primaryDisplayId: number): void {
     this.clearBlackouts();
     const allDisplays = screen.getAllDisplays();
+    const isWin = process.platform === "win32";
 
     allDisplays.forEach((disp) => {
       if (disp.id !== primaryDisplayId) {
@@ -141,6 +189,12 @@ export class DisplayBlackoutGuard {
             contextIsolation: true,
           },
         });
+
+        if (isWin) {
+          win.setAlwaysOnTop(true, "screen-saver");
+        } else {
+          win.setAlwaysOnTop(true, "floating");
+        }
 
         win.loadURL(
           `data:text/html;charset=utf-8,${encodeURIComponent(`
@@ -208,7 +262,10 @@ export class DisplayBlackoutGuard {
   public clearBlackouts(): void {
     this.blackoutWindows.forEach((win) => {
       try {
-        if (!win.isDestroyed()) win.close();
+        if (!win.isDestroyed()) {
+          win.removeAllListeners();
+          win.destroy();
+        }
       } catch {
         // quiet close
       }
